@@ -1,0 +1,38 @@
+# Per-machine config for digi.
+# Copy of this template is created automatically by install.sh as
+# etc/machines/<hostname>.yaml. Edit values to match this machine.
+
+# What this machine is used for. One of:
+#   capture | edit | laptop | nas | server
+role: edit
+
+# Filesystem paths used by digi commands. Leave blank if not applicable.
+paths:
+  # Where Capture One sessions live locally on this machine.
+  capture_root: ""
+
+  # Where AV digitization output lands locally.
+  av_root: ""
+
+  # Local scratch / working dir (fast SSD if possible).
+  scratch: "/tmp/digi"
+
+# Mount points / network shares this machine sees.
+mounts:
+  synology: ""        # e.g. /Volumes/digitization
+  campus_server: ""   # e.g. /Volumes/centos-backup or via SSH (see remotes)
+
+# SSH targets for remote operations.
+remotes:
+  campus:
+    host: ""          # e.g. centos.lib.ucdavis.edu
+    user: ""
+    backup_root: ""   # remote path for backups
+    delivery_root: "" # remote path for Special Collections delivery
+
+  synology:
+    host: ""
+    user: ""
+
+# Anything else specific to this machine.
+notes: ""

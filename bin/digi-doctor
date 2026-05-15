@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# DESC: Check this machine's environment, deps, and config.
+
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+
+log "Host:       $DIGI_HOSTNAME"
+log "Repo:       $DIGI_REPO_DIR"
+log "Config:     $DIGI_MACHINE_CONFIG"
+
+if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
+  log "Role:       $(machine_get .role)"
+else
+  warn "No machine config — run install.sh"
+fi
+
+echo
+log "Tool versions:"
+for tool in git rsync ffmpeg exiftool yq jq rclone; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    printf '  %-10s %s\n' "$tool" "$("$tool" --version 2>&1 | head -1)"
+  else
+    printf '  %-10s \033[31mMISSING\033[0m\n' "$tool"
+  fi
+done
+
+echo
+log "Done."

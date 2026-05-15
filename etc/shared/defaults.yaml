@@ -1,0 +1,30 @@
+# Cross-machine defaults. Sourced by every digi command.
+# Per-machine values override these in etc/machines/<hostname>.yaml.
+
+rsync:
+  # Flags applied to every rsync invocation across the toolkit.
+  # -a   archive (perms, times, symlinks, recursive)
+  # -h   human-readable sizes
+  # -P   progress + partial (resumable)
+  # --info=stats2,progress2  cleaner progress reporting
+  flags: "-ahP --info=stats2,progress2"
+
+  # Patterns we never copy. Capture One previews + macOS metadata cruft.
+  excludes:
+    - ".DS_Store"
+    - "._*"
+    - ".Spotlight-V100"
+    - ".Trashes"
+    - "Cache/"
+    - "Proxies/"
+
+ffmpeg:
+  # Default H.264 settings for course-video delivery (compromise: quality vs size).
+  course_video:
+    vcodec: "libx264"
+    crf: 20
+    preset: "slow"
+    acodec: "aac"
+    abitrate: "192k"
+    pix_fmt: "yuv420p"
+    extra: "-movflags +faststart"

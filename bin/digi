@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# digi — dispatcher for digitization-tasks-helper subcommands.
+#
+# Looks for an executable named `digi-<subcommand>` in the same bin/ dir
+# and runs it with the remaining args. Mirrors how `git` dispatches to
+# `git-<subcommand>`.
+
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$BIN_DIR/.." && pwd)"
+export DIGI_REPO_DIR="$REPO_DIR"
+export DIGI_LIB_DIR="$REPO_DIR/lib"
+export DIGI_ETC_DIR="$REPO_DIR/etc"
+
+VERSION="0.1.0"
+
+print_help() {
+  cat <<EOF
+digi — UC Davis Library Digitization toolkit (v${VERSION})
+
+Usage:
+  digi <command> [args...]
+  digi help
+  digi version
+
+Available commands:
+EOF
+  local cmd
+  for cmd in "$BIN_DIR"/digi-*; do
+    [[ -x "$cmd" ]] || continue
+    local name="${cmd##*/digi-}"
+    local desc=""
+    # Pull a one-line description from a `# DESC:` comment in the script header
+    desc="$(grep -m1 '^# DESC:' "$cmd" 2>/dev/null | sed 's/^# DESC: *//')"
+    printf '  %-20s %s\n' "$name" "${desc:-(no description)}"
+  done
+  cat <<EOF
+
+Run 'digi <command> --help' for command-specific help.
+Repo: $REPO_DIR
+EOF
+}
+
+case "${1:-help}" in
+  ""|help|-h|--help)
+    print_help
+    exit 0
+    ;;
+  version|--version|-V)
+    echo "digi $VERSION"
+    exit 0
+    ;;
+esac
+
+SUBCMD="$1"; shift
+SUBCMD_PATH="$BIN_DIR/digi-$SUBCMD"
+
+if [[ ! -x "$SUBCMD_PATH" ]]; then
+  echo "digi: unknown command '$SUBCMD'" >&2
+  echo "Run 'digi help' to list available commands." >&2
+  exit 127
+fi
+
+exec "$SUBCMD_PATH" "$@"
