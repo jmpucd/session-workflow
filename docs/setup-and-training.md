@@ -29,7 +29,7 @@ unless something breaks.
 1. **Open Terminal** and grab the repo:
 
    ```
-   git clone <your-repo-url> ~/code/digitization-tasks-helper
+   git clone https://github.com/jmpucd/session-workflow.git ~/code/digitization-tasks-helper
    cd ~/code/digitization-tasks-helper
    ```
 

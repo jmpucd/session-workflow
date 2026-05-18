@@ -13,7 +13,7 @@ two M4 Mac minis, and laptops.
 ## Install on a new machine
 
 ```bash
-git clone <repo-url> ~/code/digitization-tasks-helper
+git clone https://github.com/jmpucd/session-workflow.git ~/code/digitization-tasks-helper
 cd ~/code/digitization-tasks-helper
 ./install.sh
 ```
