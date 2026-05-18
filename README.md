@@ -46,7 +46,11 @@ digi force-unlock <session>  # admin: clear a stale lock (logged with reason)
 
 Each subcommand lives in `bin/digi-<name>` and can also be invoked directly.
 
-See `docs/capture-one-workflow.md` for the student-facing runbook.
+Docs:
+
+- `docs/setup-and-training.md` — installing `digi` on a Mac + onboarding a new student
+- `docs/capture-one-workflow.md` — daily cheat sheet for the three main commands
+- `docs/SOP-capture-one-handoff.md` — formal Standard Operating Procedure
 
 ## Repo layout
 
