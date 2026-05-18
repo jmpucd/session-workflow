@@ -16,13 +16,35 @@ fi
 
 echo
 log "Tool versions:"
-for tool in git rsync ffmpeg exiftool yq jq rclone; do
+for tool in git rsync ffmpeg exiftool yq jq rclone fzf; do
   if command -v "$tool" >/dev/null 2>&1; then
     printf '  %-10s %s\n' "$tool" "$("$tool" --version 2>&1 | head -1)"
   else
     printf '  %-10s \033[31mMISSING\033[0m\n' "$tool"
   fi
 done
+
+# ---- Capture One workflow paths --------------------------------------------
+echo
+log "Capture One workflow paths:"
+check_path() {
+  local label="$1" key="$2"
+  local val
+  val="$(machine_get "$key" 2>/dev/null || true)"
+  val="${val/#\~/$HOME}"
+  if [[ -z "$val" ]]; then
+    printf '  %-22s \033[33m(unset)\033[0m\n' "$label"
+  elif [[ ! -d "$val" ]]; then
+    printf '  %-22s \033[31m%s — NOT FOUND\033[0m\n' "$label" "$val"
+  else
+    printf '  %-22s %s\n' "$label" "$val"
+  fi
+}
+if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
+  check_path "capture_root"        ".paths.capture_root"
+  check_path "local_working"       ".paths.local_working"
+  check_path "sessions/synology"   ".sessions.synology_root"
+fi
 
 echo
 log "Done."

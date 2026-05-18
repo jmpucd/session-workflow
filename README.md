@@ -33,14 +33,20 @@ Everything is dispatched through a single `digi` command:
 
 ```bash
 digi help                    # list available subcommands
-digi backup <session>        # back a Capture One session up to NAS + campus
-digi sync-session <session>  # hand a Capture One session off to another Mac
-digi rip-dvd /dev/disk4      # rip a DVD to ISO + MP4 for instructor use
-digi compress-course <file>  # H.264 compress for course delivery
-digi deliver <session>       # push finished session to Special Collections drop
+
+# Capture One session workflow (Synology = queue, TB SSDs = local scratch).
+digi park [<session>]        # capture station → Synology queue
+digi queue                   # list what's parked + who has what checked out
+digi checkout [<session>]    # pull a queued session to this Mac for editing
+digi checkin                 # push edits back to Synology, release lock
+digi status                  # what's on this mac, what's checked out elsewhere
+digi log [-n 20]             # recent park / checkout / checkin events
+digi force-unlock <session>  # admin: clear a stale lock (logged with reason)
 ```
 
 Each subcommand lives in `bin/digi-<name>` and can also be invoked directly.
+
+See `docs/capture-one-workflow.md` for the student-facing runbook.
 
 ## Repo layout
 

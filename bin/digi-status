@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# DESC: Show what's checked out on this Mac and what's checked out elsewhere.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd yq
+
+usage() {
+  cat <<EOF
+Usage: digi status
+
+Shows two lists:
+  1. Sessions checked out on THIS Mac ($DIGI_HOSTNAME)
+  2. Sessions checked out on OTHER Macs
+
+Available (parked, no lock) sessions are reported as a count — use
+'digi queue' for the full list.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+
+shopt -s nullglob
+MINE=()
+OTHERS=()
+AVAILABLE=0
+for d in "$SYNOLOGY_ROOT"/*/; do
+  name="${d%/}"; name="${name##*/}"
+  [[ "$name" == .* || "$name" == _* ]] && continue
+  lock="${d}.digi.lock.yaml"
+  if [[ -f "$lock" ]]; then
+    holder="$(yq -r '.mac // "?"' "$lock")"
+    user="$(yq -r '.user // "?"' "$lock")"
+    when="$(yq -r '.checked_out_at // "?"' "$lock")"
+    if [[ "$holder" == "$DIGI_HOSTNAME" ]]; then
+      MINE+=( "$(printf '%-40s  by %s (since %s)' "$name" "$user" "$when")" )
+    else
+      OTHERS+=( "$(printf '%-40s  by %s on %s (since %s)' "$name" "$user" "$holder" "$when")" )
+    fi
+  else
+    AVAILABLE=$(( AVAILABLE + 1 ))
+  fi
+done
+shopt -u nullglob
+
+echo "── On this Mac ($DIGI_HOSTNAME) ────────────────────────────"
+if [[ ${#MINE[@]} -eq 0 ]]; then
+  echo "  (nothing checked out)"
+else
+  printf '  %s\n' "${MINE[@]}"
+fi
+
+echo
+echo "── On other Macs ───────────────────────────────────────────"
+if [[ ${#OTHERS[@]} -eq 0 ]]; then
+  echo "  (nothing checked out elsewhere)"
+else
+  printf '  %s\n' "${OTHERS[@]}"
+fi
+
+echo
+echo "── Available (parked, no lock) ─────────────────────────────"
+echo "  $AVAILABLE session(s) waiting. Run 'digi queue' to list them."

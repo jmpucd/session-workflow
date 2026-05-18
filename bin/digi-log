@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# DESC: Show recent park / checkout / checkin events from the shared log.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd jq
+
+usage() {
+  cat <<EOF
+Usage: digi log [-n N] [--session NAME]
+
+Tails the shared handoff log on the Synology, pretty-printed.
+
+  -n N             show the last N entries (default 20)
+  --session NAME   show only events for one session
+EOF
+}
+
+N=20
+FILTER_SESSION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    -n) N="$2"; shift 2 ;;
+    --session) FILTER_SESSION="$2"; shift 2 ;;
+    *) die "Unknown arg: $1" ;;
+  esac
+done
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+LOGF="${SYNOLOGY_ROOT}/_digi/log.jsonl"
+
+[[ -f "$LOGF" ]] || { log "No log yet at $LOGF"; exit 0; }
+
+if [[ -n "$FILTER_SESSION" ]]; then
+  jq -r --arg s "$FILTER_SESSION" \
+    'select(.session == $s)
+     | "\(.ts)  \(.action | ascii_upcase | .[0:8])  \(.session)  by \(.user) on \(.mac)\(if .stage then "  [stage=\(.stage)]" else "" end)\(if .notes and .notes != "" then "  — \(.notes)" else "" end)"' \
+    "$LOGF" | tail -n "$N"
+else
+  jq -r \
+    '"\(.ts)  \(.action | ascii_upcase | .[0:8])  \(.session)  by \(.user) on \(.mac)\(if .stage then "  [stage=\(.stage)]" else "" end)\(if .notes and .notes != "" then "  — \(.notes)" else "" end)"' \
+    "$LOGF" | tail -n "$N"
+fi

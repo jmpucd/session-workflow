@@ -1,0 +1,13 @@
+# Students + staff who run digi commands. Used by the "who are you?" picker
+# in park / checkout / checkin so the log records a human-readable name.
+#
+# Add a line per person. If someone picks "other" and types a name not on
+# this list, digi will suggest adding them here.
+
+users:
+  - john
+  # - sam
+  # - maria
+  # - alex
+  # - jordan
+  # - taylor

@@ -8,8 +8,15 @@ role: edit
 
 # Filesystem paths used by digi commands. Leave blank if not applicable.
 paths:
-  # Where Capture One sessions live locally on this machine.
+  # Where Capture One captures land locally on this machine.
+  # Typically only set on the capture station (e.g. ~/Pictures/capture_sessions).
   capture_root: ""
+
+  # Where sessions live while being worked on locally (cropping/QA).
+  # On editing minis this should point at the fast TB-attached SSD,
+  # e.g. /Volumes/Edit_SSD/capture_sessions.
+  # On the capture station this can match capture_root.
+  local_working: ""
 
   # Where AV digitization output lands locally.
   av_root: ""
@@ -21,6 +28,12 @@ paths:
 mounts:
   synology: ""        # e.g. /Volumes/digitization
   campus_server: ""   # e.g. /Volumes/centos-backup or via SSH (see remotes)
+
+# Capture One session workflow (park / checkout / checkin).
+sessions:
+  # Canonical home for parked sessions on the Synology share.
+  # e.g. /Volumes/digitization/capture_sessions
+  synology_root: ""
 
 # SSH targets for remote operations.
 remotes:

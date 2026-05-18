@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# DESC: Admin: clear a stale Synology lock (e.g. someone forgot to check in).
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd yq jq
+
+usage() {
+  cat <<EOF
+Usage: digi force-unlock <session-name>
+
+Removes the lock file for a session even if this Mac doesn't hold the
+lock. Use only when a session is stuck (machine crashed, student left,
+etc.). Requires a written reason — gets recorded in the log.
+
+THIS IS DESTRUCTIVE: if the actual holder is still working, their next
+checkin will fail. Coordinate first.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help|"") usage; exit 0 ;;
+esac
+
+SESSION="$1"
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+SESSION_DIR="${SYNOLOGY_ROOT}/${SESSION}"
+LOCK="${SESSION_DIR}/.digi.lock.yaml"
+
+[[ -d "$SESSION_DIR" ]] || die "No such session: $SESSION_DIR"
+[[ -f "$LOCK" ]] || { warn "No lock to clear for $SESSION"; exit 0; }
+
+HOLDER_MAC="$(yq -r '.mac // "?"' "$LOCK")"
+HOLDER_USER="$(yq -r '.user // "?"' "$LOCK")"
+WHEN="$(yq -r '.checked_out_at // "?"' "$LOCK")"
+
+echo "Force-unlocking: $SESSION"
+echo "  Current holder: $HOLDER_USER on $HOLDER_MAC since $WHEN"
+echo "  This Mac:       $DIGI_HOSTNAME"
+echo
+read -r -p "Reason (required, one line): " REASON
+[[ -n "$REASON" ]] || die "Reason is required."
+
+confirm "Clear the lock?" || die "Aborted."
+
+USER_NAME="$(who_am_i)"
+lock_clear "$SESSION" 1
+
+EXTRA="$(jq -c -n \
+  --arg prev_mac "$HOLDER_MAC" \
+  --arg prev_user "$HOLDER_USER" \
+  --arg prev_since "$WHEN" \
+  --arg reason "$REASON" \
+  '{previous_holder:{mac:$prev_mac, user:$prev_user, since:$prev_since}, reason:$reason}')"
+log_event force-unlock "$SESSION" "$USER_NAME" "$EXTRA"
+
+log "✓ Lock cleared. Session is available again."

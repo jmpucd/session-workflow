@@ -9,14 +9,20 @@ rsync:
   # --info=stats2,progress2  cleaner progress reporting
   flags: "-ahP --info=stats2,progress2"
 
-  # Patterns we never copy. Capture One previews + macOS metadata cruft.
+  # Patterns we never copy. Capture One previews + macOS metadata cruft +
+  # Adobe Bridge cache files (some students review captures in Bridge).
   excludes:
     - ".DS_Store"
     - "._*"
     - ".Spotlight-V100"
     - ".Trashes"
+    - ".fseventsd"
     - "Cache/"
     - "Proxies/"
+    - ".BridgeSort"
+    - ".BridgeCache"
+    - "*.bc"
+    - "*.bct"
 
 ffmpeg:
   # Default H.264 settings for course-video delivery (compromise: quality vs size).

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# DESC: Pull a queued Capture One session from Synology onto this Mac for editing.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd rsync yq jq
+
+usage() {
+  cat <<EOF
+Usage: digi checkout [<session-name>]
+
+Picks a session that's currently in the Synology queue (no lock file),
+rsyncs it to this Mac's local working dir, and writes a lock so other
+Macs know it's taken. When you're done editing, run 'digi checkin'.
+
+Reads:
+  paths.local_working       (this machine's config)
+  sessions.synology_root    (this machine's config)
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+LOCAL_ROOT="$(local_working_root)"
+
+# Build list of available sessions (no lock file)
+shopt -s nullglob
+AVAILABLE=()
+for d in "$SYNOLOGY_ROOT"/*/; do
+  name="${d%/}"; name="${name##*/}"
+  [[ "$name" == .* || "$name" == _* ]] && continue
+  [[ -f "${d}.digi.lock.yaml" ]] && continue
+  AVAILABLE+=( "$name" )
+done
+shopt -u nullglob
+
+SESSION="${1:-}"
+if [[ -z "$SESSION" ]]; then
+  [[ ${#AVAILABLE[@]} -gt 0 ]] || die "No available sessions in the queue (run 'digi queue' to see what's checked out)."
+  if command -v fzf >/dev/null 2>&1; then
+    SESSION="$(printf '%s\n' "${AVAILABLE[@]}" | fzf --prompt="Checkout > " --height=40% --reverse)" \
+      || die "Cancelled."
+  else
+    PS3="Checkout > "
+    select pick in "${AVAILABLE[@]}"; do
+      [[ -n "$pick" ]] && { SESSION="$pick"; break; }
+    done
+    [[ -n "$SESSION" ]] || die "Cancelled."
+  fi
+fi
+
+SRC="${SYNOLOGY_ROOT}/${SESSION}"
+DST="${LOCAL_ROOT}/${SESSION}"
+
+[[ -d "$SRC" ]] || die "No such session in queue: $SESSION"
+
+if [[ -f "${SRC}/.digi.lock.yaml" ]]; then
+  holder_mac="$(yq -r '.mac // "?"' "${SRC}/.digi.lock.yaml")"
+  holder_user="$(yq -r '.user // "?"' "${SRC}/.digi.lock.yaml")"
+  when="$(yq -r '.checked_out_at // "?"' "${SRC}/.digi.lock.yaml")"
+  die "Session is already checked out by $holder_user on $holder_mac (since $when). Use 'digi force-unlock' only if stale."
+fi
+
+if [[ -e "$DST" ]]; then
+  warn "Local destination already exists: $DST"
+  warn "Continuing will rsync over it (no deletions). If this is leftover from a previous session, consider clearing it first."
+  confirm "Continue?" || die "Aborted."
+fi
+
+USER_NAME="$(who_am_i)"
+
+# Write lock FIRST so concurrent checkout from another Mac races correctly.
+# If rsync later fails, lock is cleared.
+lock_write "$SESSION" "$DST" "$USER_NAME"
+trap 'rc=$?; if [[ $rc -ne 0 ]]; then warn "checkout failed (rc=$rc), clearing lock"; lock_clear "$SESSION" 1 || true; fi' EXIT
+
+log "Checking out $SESSION"
+log "  from: $SRC ($(session_size_pretty "$SRC"))"
+log "  to:   $DST"
+
+rsync_args
+mkdir -p "$DST"
+# Exclude the lock file from the local working copy
+rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" "$SRC/" "$DST/"
+
+log_event checkout "$SESSION" "$USER_NAME"
+
+trap - EXIT
+log "✓ Checked out. Local copy: $DST"
+log "  When you're done, run 'digi checkin' to push back and release the lock."

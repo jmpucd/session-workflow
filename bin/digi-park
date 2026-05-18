@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# DESC: Push a finished Capture One session from this Mac to the Synology queue.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd rsync yq jq
+
+usage() {
+  cat <<EOF
+Usage: digi park [<session-name>]
+
+Pushes a completed Capture One session from this machine's capture_root to
+the Synology queue, then removes the local copy. Other Macs can then
+'digi checkout' to work on it.
+
+Refuses to park if Capture One has the session open.
+
+Reads:
+  paths.capture_root        (this machine's config)
+  sessions.synology_root    (this machine's config)
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+CAPTURE_ROOT="$(capture_root)"
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+
+SESSION="${1:-}"
+if [[ -z "$SESSION" ]]; then
+  SESSION="$(session_pick "$CAPTURE_ROOT" "Pick a session to park")"
+fi
+
+SRC="${CAPTURE_ROOT}/${SESSION}"
+DST="${SYNOLOGY_ROOT}/${SESSION}"
+
+[[ -d "$SRC" ]] || die "No such session: $SRC"
+
+assert_capture_one_idle "$SRC"
+
+if [[ -e "$DST" ]]; then
+  warn "$DST already exists on Synology — this will sync in place (no overwrite of newer files on Synology)."
+  confirm "Continue?" || die "Aborted."
+fi
+
+USER_NAME="$(who_am_i)"
+
+log "Parking $SESSION"
+log "  from: $SRC ($(session_size_pretty "$SRC"))"
+log "  to:   $DST"
+
+rsync_args
+mkdir -p "$DST"
+rsync "${RSYNC_ARGS[@]}" "$SRC/" "$DST/"
+
+# Sanity check: destination has files
+[[ -n "$(ls -A "$DST" 2>/dev/null)" ]] || die "rsync finished but $DST is empty — refusing to remove local copy."
+
+log "Removing local copy: $SRC"
+rm -rf "$SRC"
+
+log_event park "$SESSION" "$USER_NAME"
+
+log "✓ Parked. Session is now in the queue. Anyone can 'digi checkout' to work on it."

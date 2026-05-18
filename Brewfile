@@ -7,6 +7,7 @@ brew "rsync"            # GNU rsync, newer than macOS built-in
 brew "coreutils"        # gdate, gstat, gsed — saner than BSD versions
 brew "jq"               # JSON in shell scripts
 brew "yq"               # YAML in shell scripts (config files)
+brew "fzf"              # interactive picker for digi park/checkout/checkin
 
 # Imaging
 brew "exiftool"         # metadata read/write across all image/video formats

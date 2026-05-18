@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# DESC: Push your checked-out session back to Synology and release the lock.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd rsync yq jq
+
+usage() {
+  cat <<EOF
+Usage: digi checkin [<session-name>]
+
+Pushes the local working copy of a session back to the Synology queue and
+releases the lock so other Macs can pick it up next. Prompts for what
+stage of work was done and any notes — these go to the shared log.
+
+Refuses to check in if Capture One has the session open or if this
+machine isn't the lock holder.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+LOCAL_ROOT="$(local_working_root)"
+
+# Build list of sessions checked out by THIS mac
+shopt -s nullglob
+MINE=()
+for d in "$SYNOLOGY_ROOT"/*/; do
+  name="${d%/}"; name="${name##*/}"
+  [[ "$name" == .* || "$name" == _* ]] && continue
+  lock="${d}.digi.lock.yaml"
+  [[ -f "$lock" ]] || continue
+  holder="$(yq -r '.mac // ""' "$lock")"
+  [[ "$holder" == "$DIGI_HOSTNAME" ]] || continue
+  MINE+=( "$name" )
+done
+shopt -u nullglob
+
+SESSION="${1:-}"
+if [[ -z "$SESSION" ]]; then
+  [[ ${#MINE[@]} -gt 0 ]] || die "Nothing is checked out on $DIGI_HOSTNAME. Run 'digi queue' to see status."
+  if [[ ${#MINE[@]} -eq 1 ]]; then
+    SESSION="${MINE[0]}"
+    log "Checking in: $SESSION (only one held by this mac)"
+  elif command -v fzf >/dev/null 2>&1; then
+    SESSION="$(printf '%s\n' "${MINE[@]}" | fzf --prompt="Check in > " --height=40% --reverse)" \
+      || die "Cancelled."
+  else
+    PS3="Check in > "
+    select pick in "${MINE[@]}"; do
+      [[ -n "$pick" ]] && { SESSION="$pick"; break; }
+    done
+    [[ -n "$SESSION" ]] || die "Cancelled."
+  fi
+fi
+
+SRC="${LOCAL_ROOT}/${SESSION}"
+DST="${SYNOLOGY_ROOT}/${SESSION}"
+LOCK="${DST}/.digi.lock.yaml"
+
+[[ -d "$SRC" ]] || die "Local copy missing: $SRC"
+[[ -d "$DST" ]] || die "Synology copy missing: $DST"
+[[ -f "$LOCK" ]] || die "No lock file at $LOCK — nothing to check in."
+
+HOLDER="$(yq -r '.mac // ""' "$LOCK")"
+[[ "$HOLDER" == "$DIGI_HOSTNAME" ]] || \
+  die "Lock is held by $HOLDER, not $DIGI_HOSTNAME. Refusing to check in. Use 'digi force-unlock' if stale."
+
+assert_capture_one_idle "$SRC"
+
+# Pull user from existing lock so we keep the same identity end-to-end
+USER_NAME="$(yq -r '.user // ""' "$LOCK")"
+[[ -n "$USER_NAME" ]] || USER_NAME="$(who_am_i)"
+
+# Prompt for stage + notes
+echo "What stage of work did you finish?"
+STAGES=( "crop" "qa-qc" "done" "other" )
+PS3="Stage > "
+STAGE=""
+select pick in "${STAGES[@]}"; do
+  [[ -n "$pick" ]] && { STAGE="$pick"; break; }
+done
+[[ "$STAGE" == "other" ]] && { read -r -p "Describe stage: " STAGE; }
+[[ -n "$STAGE" ]] || die "Empty stage."
+
+read -r -p "Notes (optional, one line): " NOTES || true
+
+log "Checking in $SESSION"
+log "  from: $SRC ($(session_size_pretty "$SRC"))"
+log "  to:   $DST"
+
+rsync_args
+# Don't push the lock file or local .DS_Store junk; rsync_args excludes already cover most
+rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" "$SRC/" "$DST/"
+
+# Build extra JSON for the log
+EXTRA="$(jq -c -n --arg stage "$STAGE" --arg notes "$NOTES" '{stage:$stage, notes:$notes}')"
+log_event checkin "$SESSION" "$USER_NAME" "$EXTRA"
+
+# Release lock LAST so the event is logged while we still know who held it
+lock_clear "$SESSION"
+
+log "✓ Checked in. Lock released."
+log "  Local copy at $SRC is still here — delete it manually when you're confident the Synology copy is good."

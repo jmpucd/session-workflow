@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# DESC: List parked Capture One sessions on the Synology and their lock status.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd yq
+
+usage() {
+  cat <<EOF
+Usage: digi queue
+
+Lists every Capture One session currently parked on the Synology and shows
+whether each is available or checked out (and by whom).
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+
+shopt -s nullglob
+ANY=0
+printf '%-40s  %s\n' "SESSION" "STATUS"
+printf '%-40s  %s\n' "----------------------------------------" "------"
+for d in "$SYNOLOGY_ROOT"/*/; do
+  name="${d%/}"; name="${name##*/}"
+  [[ "$name" == .* || "$name" == _* ]] && continue
+  ANY=1
+  lock="${d}.digi.lock.yaml"
+  if [[ -f "$lock" ]]; then
+    holder_mac="$(yq -r '.mac // "?"' "$lock")"
+    holder_user="$(yq -r '.user // "?"' "$lock")"
+    when="$(yq -r '.checked_out_at // "?"' "$lock")"
+    printf '%-40s  checked out by %s on %s (since %s)\n' "$name" "$holder_user" "$holder_mac" "$when"
+  else
+    printf '%-40s  available\n' "$name"
+  fi
+done
+shopt -u nullglob
+
+[[ $ANY -eq 1 ]] || log "Queue is empty: no parked sessions in $SYNOLOGY_ROOT"
