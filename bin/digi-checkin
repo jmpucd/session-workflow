@@ -69,6 +69,7 @@ HOLDER="$(yq -r '.mac // ""' "$LOCK")"
   die "Lock is held by $HOLDER, not $DIGI_HOSTNAME. Refusing to check in. Use 'digi force-unlock' if stale."
 
 assert_capture_one_idle "$SRC"
+assert_session_unpacked "$SRC"
 
 # Pull user from existing lock so we keep the same identity end-to-end
 USER_NAME="$(yq -r '.user // ""' "$LOCK")"

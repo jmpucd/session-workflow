@@ -18,7 +18,12 @@ echo
 log "Tool versions:"
 for tool in git rsync ffmpeg exiftool yq jq rclone fzf; do
   if command -v "$tool" >/dev/null 2>&1; then
-    printf '  %-10s %s\n' "$tool" "$("$tool" --version 2>&1 | head -1)"
+    # exiftool has no --version; it uses -ver
+    if [[ "$tool" == "exiftool" ]]; then
+      printf '  %-10s %s\n' "$tool" "$(exiftool -ver 2>&1 | head -1)"
+    else
+      printf '  %-10s %s\n' "$tool" "$("$tool" --version 2>&1 | head -1)"
+    fi
   else
     printf '  %-10s \033[31mMISSING\033[0m\n' "$tool"
   fi
@@ -44,6 +49,32 @@ if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
   check_path "capture_root"        ".paths.capture_root"
   check_path "local_working"       ".paths.local_working"
   check_path "sessions/synology"   ".sessions.synology_root"
+fi
+
+# ---- Session format (must be UNPACKED) -------------------------------------
+# Sessions must be imported unpacked; packed .eip files break the handoff.
+# Scan the local session roots for stray .eip files and flag them.
+if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
+  echo
+  log "Session format (must be UNPACKED — no .eip files):"
+  source "${DIGI_LIB_DIR}/sessions.sh"
+  check_unpacked() {
+    local label="$1" key="$2"
+    local val
+    val="$(machine_get "$key" 2>/dev/null || true)"
+    val="${val/#\~/$HOME}"
+    [[ -n "$val" && -d "$val" ]] || return 0
+    local n
+    n="$(packed_file_count "$val")"
+    if [[ "$n" -gt 0 ]]; then
+      printf '  %-22s \033[31m%s packed .eip file(s) found — sessions must be UNPACKED\033[0m\n' "$label" "$n"
+    else
+      printf '  %-22s \033[32mOK (no .eip)\033[0m\n' "$label"
+    fi
+  }
+  check_unpacked "capture_root"  ".paths.capture_root"
+  check_unpacked "local_working" ".paths.local_working"
+  printf '  %s\n' "Reminder: Capture One → Preferences → Image → uncheck 'Pack as EIP'."
 fi
 
 echo

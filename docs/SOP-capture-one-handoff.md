@@ -38,6 +38,15 @@ archival, or AV digitization — those have separate SOPs.
 | Synology: `<share>/capture_sessions/`       | Canonical queue — single source of truth when nobody is editing | `digi park` writes; `digi checkout`/`checkin` read & write |
 | Each mini's TB SSD: `/Volumes/<TB-SSD>/capture_sessions/` | Fast local working copy while editing | `digi checkout` writes; `digi checkin` reads |
 
+**Sessions must be UNPACKED.** The capture station's Capture One is
+configured to import raw files unpacked (Preferences → Image → "Pack as EIP"
+**off**), so captures land as loose `.IIQ`/`.CR3` files rather than packed
+`.eip` archives. This is a hard requirement, not a preference: a packed
+`.eip` is a zip Capture One rewrites in full on every adjustment, which is
+unsafe to copy mid-write and forces a full-session re-transfer on every
+hand-off. `digi park` and `digi checkin` refuse any session containing
+`.eip` files, and `digi doctor` flags them.
+
 **A session is in exactly one of three states:**
 
 1. **Capturing** — on the capture station's internal drive only.
@@ -141,6 +150,7 @@ At any time, on any Mac:
 | Never open a session directly from the Synology share for editing. | The Synology copy is the canonical queue. Editing it directly bypasses the lock and risks two people editing it at once. Always `checkout` to a local SSD first. |
 | Never delete the Synology copy of a session manually. | The Synology copy is the source of truth. If something goes wrong and you need to undo, the admin will recover from there. |
 | Never `force-unlock` a session without confirming the listed holder is not actively working. | You can clobber unsaved adjustments. Coordinate first; force-unlock is for genuinely stale locks (crashed machine, vacation, etc.). |
+| Keep Capture One set to import UNPACKED; never move a packed (`.eip`) session through the workflow. | Packed archives are rewritten whole on every edit — unsafe to sync and slow to hand off. `digi` refuses them, but capture should never produce them in the first place. |
 
 ## 7. Errors and what to do
 
@@ -152,6 +162,7 @@ At any time, on any Mac:
 | `Lock is held by <other-mac>, not this machine. Refusing to check in.` | You're running `checkin` on a Mac that didn't check out this session. | Move to the right Mac. Or, if the right Mac is unavailable, have an admin `force-unlock` and re-checkout. |
 | `Nothing is checked out on <hostname>.` | You ran `digi checkin` but this Mac doesn't hold any locks. | Check `digi status` — maybe you're on the wrong Mac, or you checked it in already. |
 | `Local copy missing: <path>` | The local working copy was deleted before you ran `checkin`. | The Synology copy is intact. You'll need to re-`checkout` and redo any local-only edits. |
+| `'<session>' contains N packed (.eip) file(s). This workflow requires UNPACKED sessions.` | The session was captured or imported packed. | Set the Versa's Capture One to unpacked (Preferences → Image → uncheck "Pack as EIP") and re-import/unpack the session. Ask John if unsure. |
 
 ## 8. Escalation
 
@@ -209,6 +220,9 @@ If any of these happen, stop and contact John:
   Presence = checked out; absence = available.
 - **TB SSD** — Thunderbolt-attached external SSD used as fast local working
   storage on each mini.
+- **Unpacked / packed** — how Capture One stores raw files. *Unpacked* =
+  loose raw files (`.IIQ`, `.CR3`) the workflow requires. *Packed* = `.eip`
+  zip archives, rejected by `digi park`/`checkin`.
 
 ---
 

@@ -38,6 +38,7 @@ DST="${SYNOLOGY_ROOT}/${SESSION}"
 [[ -d "$SRC" ]] || die "No such session: $SRC"
 
 assert_capture_one_idle "$SRC"
+assert_session_unpacked "$SRC"
 
 if [[ -e "$DST" ]]; then
   warn "$DST already exists on Synology — this will sync in place (no overwrite of newer files on Synology)."

@@ -244,6 +244,38 @@ assert_capture_one_idle() {
   fi
 }
 
+# ---- packed-session guard --------------------------------------------------
+#
+# The whole handoff depends on sessions being imported UNPACKED. Packed raw
+# files (.eip) are zip archives Capture One rewrites whole-file on every
+# adjustment: an rsync mid-write can copy a torn archive, and every checkin
+# re-transfers the entire session over the minis' 1GbE link instead of the
+# ~100MB of hot files. Unpacked keeps the raw files immutable and safe to sync.
+#
+# Detection is by artifact, not preference: any *.eip under the session means
+# it was captured/imported packed.
+
+# Print the number of packed (.eip) files found under a dir (0 if none).
+packed_file_count() {
+  local dir="$1"
+  [[ -d "$dir" ]] || { printf '0\n'; return; }
+  find "$dir" -type f -iname '*.eip' 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Die if the session contains packed (.eip) files.
+assert_session_unpacked() {
+  local session_dir="$1"
+  local n
+  n="$(packed_file_count "$session_dir")"
+  if [[ "$n" -gt 0 ]]; then
+    die "'$(basename "$session_dir")' contains $n packed (.eip) file(s). This workflow requires UNPACKED sessions.
+     Fix: in Capture One, Preferences → Image → uncheck 'Pack as EIP', then
+     re-import / unpack this session. If you're unsure, stop and ask John.
+     (Why: packed .eip files are rewritten whole on every edit — unsafe to sync
+     and slow to hand off. See docs/SOP-capture-one-handoff.md.)"
+  fi
+}
+
 # ---- who_am_i --------------------------------------------------------------
 
 # Reads etc/shared/users.yaml, prompts for selection, prints chosen name.

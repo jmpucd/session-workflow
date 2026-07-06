@@ -81,6 +81,25 @@ unless something breaks.
    path is whatever shows up under `/Volumes/` when the drive is plugged
    in — usually whatever you named the disk in Disk Utility.
 
+   **On the Versa Mac Studio only — set Capture One to import UNPACKED.**
+   This is not optional. In Capture One:
+
+   > Preferences → Image → **uncheck "Pack as EIP"** (some versions phrase
+   > it as "Store files packed"). New captures must land as loose raw files
+   > (`.IIQ`, `.CR3`, …), not packed `.eip` archives.
+
+   Why it matters: a packed `.eip` is a zip that Capture One rewrites in
+   full every time you touch an adjustment. That makes the file unsafe to
+   copy while it's being written, and it forces `digi` to re-transfer the
+   whole session on every check-in instead of just the small hot files —
+   painfully slow over the minis' 1GbE link. Unpacked keeps the raw files
+   immutable, so hand-offs stay fast and safe.
+
+   `digi` enforces this: `digi park` and `digi checkin` will **refuse** any
+   session that contains `.eip` files, and `digi doctor` flags them in red.
+   If you hit that, fix the preference above and re-import the session
+   (or ask John).
+
 4. **Create the working folders if they don't exist:**
 
    On the Versa: `mkdir -p ~/Pictures/capture_sessions`
@@ -134,6 +153,13 @@ unless something breaks.
   volume name mounts twice (`Edit_SSD 1`, `Edit_SSD 2`). Make sure you
   never have two drives with the same name plugged in, and that you
   eject cleanly before unplugging.
+
+- **"contains N packed (.eip) file(s)"** when parking or checking in, or
+  a red "packed .eip file(s) found" in `digi doctor`. The session was
+  captured/imported packed. Set the Versa's Capture One to unpacked
+  (Preferences → Image → uncheck "Pack as EIP") and re-import the session.
+  Existing packed sessions have to be unpacked before they'll move through
+  the workflow — if you're unsure, ask John.
 
 ---
 
