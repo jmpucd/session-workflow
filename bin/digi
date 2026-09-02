@@ -7,7 +7,19 @@
 
 set -euo pipefail
 
-BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# install.sh installs `digi` as a symlink in ~/.local/bin pointing back into
+# the repo's bin/. `dirname "${BASH_SOURCE[0]}"` alone does NOT follow that
+# symlink — it resolves to ~/.local/bin, not this repo — so every subcommand
+# lookup below would fail with "unknown command" once run via the symlink.
+# Walk the symlink chain by hand (portable — works with BSD readlink, which
+# has no -f) before taking dirname.
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" == /* ]] || SOURCE="$DIR/$SOURCE"
+done
+BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 REPO_DIR="$(cd "$BIN_DIR/.." && pwd)"
 export DIGI_REPO_DIR="$REPO_DIR"
 export DIGI_LIB_DIR="$REPO_DIR/lib"
@@ -32,7 +44,11 @@ EOF
     local name="${cmd##*/digi-}"
     local desc=""
     # Pull a one-line description from a `# DESC:` comment in the script header
-    desc="$(grep -m1 '^# DESC:' "$cmd" 2>/dev/null | sed 's/^# DESC: *//')"
+    # `|| true`: under set -eo pipefail, a script missing the DESC comment
+    # makes grep exit 1, which (via pipefail) fails this whole assignment
+    # and would kill `digi help` entirely for every command, not just show
+    # "(no description)" for the one missing it.
+    desc="$(grep -m1 '^# DESC:' "$cmd" 2>/dev/null | sed 's/^# DESC: *//')" || true
     printf '  %-20s %s\n' "$name" "${desc:-(no description)}"
   done
   cat <<EOF
