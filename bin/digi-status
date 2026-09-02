@@ -15,7 +15,8 @@ Shows two lists:
   2. Sessions checked out on OTHER Macs
 
 Available (parked, no lock) sessions are reported as a count — use
-'digi queue' for the full list.
+'digi queue' for the full list. Sessions marked done ('digi complete')
+are counted separately and excluded from "available".
 EOF
 }
 
@@ -27,9 +28,14 @@ shopt -s nullglob
 MINE=()
 OTHERS=()
 AVAILABLE=0
+COMPLETE=0
 for d in "$SYNOLOGY_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
   [[ "$name" == .* || "$name" == _* ]] && continue
+  if session_is_complete "$name"; then
+    COMPLETE=$(( COMPLETE + 1 ))
+    continue
+  fi
   lock="${d}.digi.lock.yaml"
   if [[ -f "$lock" ]]; then
     holder="$(yq -r '.mac // "?"' "$lock")"
@@ -64,3 +70,7 @@ fi
 echo
 echo "── Available (parked, no lock) ─────────────────────────────"
 echo "  $AVAILABLE session(s) waiting. Run 'digi queue' to list them."
+
+echo
+echo "── Marked complete ─────────────────────────────────────────"
+echo "  $COMPLETE session(s). Run 'digi queue --all' to list them."

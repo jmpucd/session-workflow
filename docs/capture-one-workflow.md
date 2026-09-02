@@ -85,11 +85,34 @@ What happens:
 Your local copy is **not** deleted — it sits on your TB SSD as a safety net.
 Clean it up manually when you trust the Synology copy.
 
+### `digi complete` — imaging's done, hide it from the queue
+
+Run this on any Mac once a session is genuinely finished (not just checked
+in for now) — session must not be checked out.
+
+```
+$ digi complete
+Mark complete > D-823_Some_Collection
+Who are you?
+  > sam
+Notes (optional, one line): delivered to QA, ready for close-out
+✓ Marked complete. D-823_Some_Collection is hidden from 'digi queue' and 'digi checkout'.
+```
+
+This is a **label, not an archive** — the session stays exactly where it
+is on the Synology and no space is freed. It just stops showing up in
+`digi queue` / `digi status` / `digi checkout`'s picker so nobody
+accidentally checks out finished work. `digi queue --all` still lists it.
+
+Changed your mind? Run `digi complete <session>` again — it notices the
+existing marker and offers to un-mark it.
+
 ## The other commands
 
 - **`digi queue`** — what's waiting in the queue + what's checked out
+  (`digi queue --all` also shows sessions marked complete)
 - **`digi status`** — what's on this Mac + what's elsewhere
-- **`digi log -n 20`** — last 20 events (park, checkout, checkin)
+- **`digi log -n 20`** — last 20 events (park, checkout, checkin, complete)
 - **`digi log --session D-823_Some_Collection`** — history of one session
 
 ## Admin

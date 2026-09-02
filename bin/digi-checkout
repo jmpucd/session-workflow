@@ -14,6 +14,9 @@ Picks a session that's currently in the Synology queue (no lock file),
 rsyncs it to this Mac's local working dir, and writes a lock so other
 Macs know it's taken. When you're done editing, run 'digi checkin'.
 
+Sessions marked done ('digi complete') are left out of the picker.
+Naming one explicitly still works, but asks you to confirm first.
+
 Reads:
   paths.local_working       (this machine's config)
   sessions.synology_root    (this machine's config)
@@ -32,6 +35,7 @@ for d in "$SYNOLOGY_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
   [[ "$name" == .* || "$name" == _* ]] && continue
   [[ -f "${d}.digi.lock.yaml" ]] && continue
+  session_is_complete "$name" && continue
   AVAILABLE+=( "$name" )
 done
 shopt -u nullglob
@@ -55,6 +59,13 @@ SRC="${SYNOLOGY_ROOT}/${SESSION}"
 DST="${LOCAL_ROOT}/${SESSION}"
 
 [[ -d "$SRC" ]] || die "No such session in queue: $SESSION"
+
+if session_is_complete "$SESSION"; then
+  comp_user="$(complete_field "$SESSION" user)"
+  comp_when="$(complete_field "$SESSION" completed_at)"
+  warn "$SESSION is marked complete (by $comp_user on $comp_when)."
+  confirm "Check it out anyway?" || die "Aborted."
+fi
 
 if [[ -f "${SRC}/.digi.lock.yaml" ]]; then
   holder_mac="$(yq -r '.mac // "?"' "${SRC}/.digi.lock.yaml")"

@@ -4,8 +4,8 @@
 |-----------------|---------------------------------------------------|
 | **Owner**       | John Pike, Digitization Services Specialist       |
 | **Audience**    | John + student assistants                         |
-| **Version**     | 1.0                                               |
-| **Effective**   | 2026-05-17                                        |
+| **Version**     | 1.1                                               |
+| **Effective**   | 2026-05-17 (§5.4 "Mark a session done" added 2026-09-02) |
 | **Review**      | Annually, or when the workflow changes            |
 | **Tool**        | `digi` (UC Davis Library digitization-tasks-helper) |
 
@@ -133,7 +133,27 @@ for occasional QA):
    Synology copy (run `digi queue` and confirm it appears available), you
    may manually delete the local copy to reclaim SSD space.
 
-### 5.4 Check status
+### 5.4 Mark a session done (hide it from the queue)
+
+Once a session's imaging and editing are genuinely finished — not just
+"checked in for now" — mark it complete so it stops cluttering `digi
+queue`/`digi checkout` for everyone else. This is a **label, not an
+archive**: the files stay exactly where they are on the Synology and no
+space is freed. It only affects what the tool shows.
+
+1. Make sure the session is checked in (not checked out) — `digi complete`
+   refuses on a locked session.
+2. Run `digi complete [<session>]`.
+3. Select your name and add an optional one-line note.
+4. The session disappears from `digi queue` and `digi status`'s available
+   count, and won't be offered by `digi checkout`'s picker (naming it
+   explicitly still works, with a confirmation prompt).
+5. To undo: run `digi complete <session>` again — it detects the existing
+   marker and asks to un-mark it, putting the session back in the queue.
+6. `digi queue --all` shows completed sessions too, with who marked it and
+   when.
+
+### 5.5 Check status
 
 At any time, on any Mac:
 
@@ -216,6 +236,9 @@ If any of these happen, stop and contact John:
 - **Checkout** — copy a queued session from the Synology to a local working
   drive and write a lock so others can't double-grab it.
 - **Checkin** — copy local edits back to the Synology and release the lock.
+- **Complete** — a marker (`.digi.complete.yaml`) flagging a parked session
+  as done. Hides it from `digi queue`/`digi checkout`; does not move or
+  delete anything.
 - **Lock file** — `.digi.lock.yaml` inside a session folder on the Synology.
   Presence = checked out; absence = available.
 - **TB SSD** — Thunderbolt-attached external SSD used as fast local working

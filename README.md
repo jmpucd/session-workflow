@@ -39,8 +39,9 @@ digi park [<session>]        # capture station → Synology queue
 digi queue                   # list what's parked + who has what checked out
 digi checkout [<session>]    # pull a queued session to this Mac for editing
 digi checkin                 # push edits back to Synology, release lock
+digi complete [<session>]    # mark a parked session done (hides it from queue; not an archive)
 digi status                  # what's on this mac, what's checked out elsewhere
-digi log [-n 20]             # recent park / checkout / checkin events
+digi log [-n 20]             # recent park / checkout / checkin / complete events
 digi force-unlock <session>  # admin: clear a stale lock (logged with reason)
 ```
 

@@ -27,7 +27,7 @@ rsync_args() {
   local p
   while IFS= read -r p; do
     [[ -n "$p" ]] && RSYNC_ARGS+=( --exclude="$p" )
-  done < <(yq -r '.rsync.excludes[]? // empty' "$DIGI_SHARED_DEFAULTS")
+  done < <(yq -r '.rsync.excludes // [] | .[]' "$DIGI_SHARED_DEFAULTS")
 }
 
 # ---- path resolvers --------------------------------------------------------
@@ -173,6 +173,60 @@ lock_clear() {
   rm -f "$p"
 }
 
+# ---- complete marker --------------------------------------------------------
+#
+# Marker lives at <synology_sessions_root>/<session>/.digi.complete.yaml.
+# Presence means "done, hide from the working queue" — it does NOT move or
+# delete anything. Format:
+#   user: sam
+#   completed_at: 2026-09-02T18:30:12Z
+#   notes: imaging done, delivered to QA
+
+complete_path() {
+  local session="$1"
+  printf '%s/%s/.digi.complete.yaml\n' "$(synology_sessions_root)" "$session"
+}
+
+session_is_complete() {
+  local session="$1"
+  [[ -f "$(complete_path "$session")" ]]
+}
+
+# Print one field from the complete marker (or empty if not complete / no field).
+# Usage: complete_field <session> user
+complete_field() {
+  local session="$1" field="$2"
+  local p
+  p="$(complete_path "$session")"
+  [[ -f "$p" ]] || return 0
+  yq -r ".${field} // \"\"" "$p"
+}
+
+# Write the complete marker.
+# Usage: complete_write <session> <user> <notes>
+complete_write() {
+  local session="$1" user="$2" notes="$3"
+  local p
+  p="$(complete_path "$session")"
+  local dir
+  dir="$(dirname "$p")"
+  [[ -d "$dir" ]] || die "Session dir missing on Synology: $dir"
+
+  local tmp
+  tmp="$(mktemp "${dir}/.digi.complete.XXXXXX")"
+  cat >"$tmp" <<EOF
+user: ${user}
+completed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+notes: ${notes}
+EOF
+  mv -f "$tmp" "$p"
+}
+
+complete_clear() {
+  local session="$1"
+  rm -f "$(complete_path "$session")"
+}
+
 # ---- log -------------------------------------------------------------------
 #
 # Append-only JSONL at <synology_sessions_root>/_digi/log.jsonl.
@@ -189,7 +243,16 @@ _log_file() {
 
 # log_event <action> <session> <user> [extra_json]
 log_event() {
-  local action="$1" session="$2" user="$3" extra="${4:-{}}"
+  local action="$1" session="$2" user="$3"
+  # NOTE: don't write this as extra="${4:-{}}" — bash misparses the nested
+  # `{}` in that default-value expansion and silently appends a stray `}`
+  # onto any *passed* value (only the true-default case comes out right).
+  # That broke log_event's jq call for every caller that passes extra data
+  # (digi-checkin's stage/notes, digi-force-unlock's reason) — jq errored
+  # out, set -e killed the script, and no log line was written, even
+  # though the actual rsync/lock work had already succeeded.
+  local extra="${4-}"
+  [[ -n "$extra" ]] || extra='{}'
   local logf
   logf="$(_log_file)"
   local ts
@@ -285,7 +348,7 @@ who_am_i() {
     local u
     while IFS= read -r u; do
       [[ -n "$u" ]] && users+=( "$u" )
-    done < <(yq -r '.users[]? // empty' "$DIGI_SHARED_USERS")
+    done < <(yq -r '.users // [] | .[]' "$DIGI_SHARED_USERS")
   fi
 
   # Default suggestion is $USER

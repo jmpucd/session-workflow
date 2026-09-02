@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# DESC: Mark a parked Synology session done (hides it from the queue). Run again to un-mark.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd yq jq
+
+usage() {
+  cat <<EOF
+Usage: digi complete [<session-name>]
+
+Marks a parked session as done. It stays exactly where it is on the
+Synology — nothing is moved or deleted — but 'digi queue' and 'digi
+status' stop listing it, and 'digi checkout' won't offer it in the
+picker, so nobody accidentally picks up finished work.
+
+This is a marker, not an archive: it does not free any space. If you
+need Synology space back, that's a separate step (ask John).
+
+Run 'digi complete' again on an already-complete session to un-mark it.
+
+Refuses if the session is currently checked out — check it in first.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+
+SESSION="${1:-}"
+if [[ -z "$SESSION" ]]; then
+  SESSION="$(session_pick "$SYNOLOGY_ROOT" "Mark complete")"
+fi
+
+SESSION_DIR="${SYNOLOGY_ROOT}/${SESSION}"
+[[ -d "$SESSION_DIR" ]] || die "No such session in queue: $SESSION"
+
+if lock_exists "$SESSION"; then
+  holder_mac="$(lock_field "$SESSION" mac)"
+  holder_user="$(lock_field "$SESSION" user)"
+  die "Session is checked out by $holder_user on $holder_mac. Check it in first."
+fi
+
+USER_NAME="$(who_am_i)"
+
+if session_is_complete "$SESSION"; then
+  prev_user="$(complete_field "$SESSION" user)"
+  prev_when="$(complete_field "$SESSION" completed_at)"
+  prev_notes="$(complete_field "$SESSION" notes)"
+  echo "$SESSION is already marked complete by $prev_user on $prev_when."
+  [[ -n "$prev_notes" ]] && echo "  Notes: $prev_notes"
+  confirm "Un-mark it (put it back in the queue)?" || die "Aborted."
+
+  complete_clear "$SESSION"
+  log_event reopen "$SESSION" "$USER_NAME"
+  log "✓ Un-marked. $SESSION is back in the queue."
+else
+  read -r -p "Notes (optional, one line): " NOTES || true
+  complete_write "$SESSION" "$USER_NAME" "$NOTES"
+
+  EXTRA="$(jq -c -n --arg notes "$NOTES" '{notes:$notes}')"
+  log_event complete "$SESSION" "$USER_NAME" "$EXTRA"
+  log "✓ Marked complete. $SESSION is hidden from 'digi queue' and 'digi checkout'."
+  log "  Run 'digi complete $SESSION' again to un-mark it."
+fi

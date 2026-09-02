@@ -8,24 +8,44 @@ require_cmd yq
 
 usage() {
   cat <<EOF
-Usage: digi queue
+Usage: digi queue [--all]
 
 Lists every Capture One session currently parked on the Synology and shows
 whether each is available or checked out (and by whom).
+
+Sessions marked done ('digi complete') are hidden by default. Pass --all
+to include them.
 EOF
 }
 
 case "${1:-}" in -h|--help) usage; exit 0;; esac
 
+SHOW_ALL=0
+[[ "${1:-}" == "--all" ]] && SHOW_ALL=1
+
 SYNOLOGY_ROOT="$(synology_sessions_root)"
 
 shopt -s nullglob
 ANY=0
+HIDDEN=0
 printf '%-40s  %s\n' "SESSION" "STATUS"
 printf '%-40s  %s\n' "----------------------------------------" "------"
 for d in "$SYNOLOGY_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
   [[ "$name" == .* || "$name" == _* ]] && continue
+
+  if session_is_complete "$name"; then
+    if [[ $SHOW_ALL -eq 0 ]]; then
+      HIDDEN=$(( HIDDEN + 1 ))
+      continue
+    fi
+    ANY=1
+    comp_user="$(complete_field "$name" user)"
+    comp_when="$(complete_field "$name" completed_at)"
+    printf '%-40s  complete (by %s on %s)\n' "$name" "$comp_user" "$comp_when"
+    continue
+  fi
+
   ANY=1
   lock="${d}.digi.lock.yaml"
   if [[ -f "$lock" ]]; then
@@ -40,3 +60,4 @@ done
 shopt -u nullglob
 
 [[ $ANY -eq 1 ]] || log "Queue is empty: no parked sessions in $SYNOLOGY_ROOT"
+[[ $HIDDEN -gt 0 ]] && log "$HIDDEN session(s) marked complete (hidden). Run 'digi queue --all' to see them."
