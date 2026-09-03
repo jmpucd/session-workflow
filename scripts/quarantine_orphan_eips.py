@@ -115,6 +115,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=str(Path.home() / "Pictures" / "capture_sessions"))
     ap.add_argument("--only", default=None, help="Only process this one session name")
+    ap.add_argument("--exclude", action="append", default=[],
+                     help="Never touch this session, no matter what the busy-check says — repeatable. "
+                          "Use this for anything you know is actively being worked on by a human right "
+                          "now; don't rely on the busy-check alone for that.")
     ap.add_argument("--dry-run", action="store_true", help="List what would move, change nothing")
     ap.add_argument("--synology-root", default="/Volumes/Digitization_Files/capture_sessions",
                      help="Used only to record the eventual destination path in the manifest — nothing is written there")
@@ -151,6 +155,9 @@ def main():
     sessions = []
     for d in sorted(root.iterdir()):
         if not d.is_dir() or d.name.startswith((".", "_")):
+            continue
+        if d.name in args.exclude:
+            print(f"--- {d.name}: excluded, skipping ---")
             continue
         if args.only and d.name != args.only:
             continue
