@@ -13,9 +13,11 @@
 		<string>1</string>
 	</array>
 
-	<!-- Runs once at load, then every 60s. Not KeepAlive — each pass is a
-	     single, self-contained run; if one is somehow still running when the
-	     next is due, launchd just skips that tick rather than piling up. -->
+	<!-- Runs once at load, then every 60s. StartInterval does NOT wait for
+	     a still-running previous invocation before firing again (a large
+	     session can easily take longer than 60s) — digi-presync itself
+	     holds a lock (see bin/digi-presync) so an overlapping tick just
+	     exits immediately instead of piling on a second concurrent pass. -->
 	<key>StartInterval</key>
 	<integer>60</integer>
 	<key>RunAtLoad</key>

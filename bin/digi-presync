@@ -49,6 +49,40 @@ if [[ "${1:-}" == "--min-age-minutes" ]]; then
   MIN_AGE_MIN="${2:?--min-age-minutes needs a value}"
 fi
 
+# ---- single-instance lock ---------------------------------------------------
+#
+# launchd's StartInterval does NOT skip a tick if the previous run is still
+# going — a large session can easily take longer than the 60s interval, and
+# without this, every tick piles on another full pass, all racing rsync
+# against the same files at once. mkdir is atomic, so it doubles as a
+# portable lock with no extra dependency; a pid file inside it lets a later
+# run tell a genuinely-stuck lock apart from one left behind by a crash.
+LOCK_DIR="${TMPDIR:-/tmp}/digi-presync-${DIGI_HOSTNAME}.lock"
+
+acquire_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo $$ > "$LOCK_DIR/pid"
+    return 0
+  fi
+  local old_pid
+  old_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
+    return 1
+  fi
+  # Stale lock (process no longer exists) — reclaim it.
+  rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR" 2>/dev/null || return 1
+  echo $$ > "$LOCK_DIR/pid"
+  return 0
+}
+
+if ! acquire_lock; then
+  # A pass is already running — exit quietly. Expected and benign; the
+  # next scheduled tick gets a fresh look at the world regardless.
+  exit 0
+fi
+trap 'rm -rf "$LOCK_DIR"' EXIT
+
 CAPTURE_ROOT="$(capture_root)"
 SYNOLOGY_ROOT="$(synology_sessions_root)"
 
