@@ -173,6 +173,56 @@ lock_clear() {
   rm -f "$p"
 }
 
+# ---- not-ready marker -------------------------------------------------------
+#
+# Marker lives at <synology_sessions_root>/<session>/.digi.notready.yaml.
+# Presence means "a transfer into this session dir is still in progress —
+# hide it from queue/status/checkout until it's cleared." Written by
+# digi-presync on first contact with a session, and by digi-park before its
+# own transfer if presync hasn't already; cleared only by digi-park once a
+# transfer is fully verified. Clearing this marker — not "files exist on
+# disk" — is what actually makes a session officially parked.
+#
+# This also closes a race in the plain (non-presynced) park path: without
+# it, `mkdir` + a long rsync leaves a partially-written directory visible to
+# `digi queue`/`digi checkout` on another Mac the whole time the transfer is
+# in flight, which could grab an incomplete copy.
+
+notready_path() {
+  local session="$1"
+  printf '%s/%s/.digi.notready.yaml\n' "$(synology_sessions_root)" "$session"
+}
+
+notready_exists() {
+  local session="$1"
+  [[ -f "$(notready_path "$session")" ]]
+}
+
+# Write (or refresh) the not-ready marker. Idempotent.
+# Usage: notready_write <session> <source>   (source: "presync" or "park")
+notready_write() {
+  local session="$1" source="${2:-park}"
+  local p
+  p="$(notready_path "$session")"
+  local dir
+  dir="$(dirname "$p")"
+  [[ -d "$dir" ]] || die "Session dir missing on Synology: $dir"
+
+  local tmp
+  tmp="$(mktemp "${dir}/.digi.notready.XXXXXX")"
+  cat >"$tmp" <<EOF
+source: ${source}
+mac: ${DIGI_HOSTNAME}
+updated_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+  mv -f "$tmp" "$p"
+}
+
+notready_clear() {
+  local session="$1"
+  rm -f "$(notready_path "$session")"
+}
+
 # ---- complete marker --------------------------------------------------------
 #
 # Marker lives at <synology_sessions_root>/<session>/.digi.complete.yaml.

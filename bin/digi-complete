@@ -36,6 +36,10 @@ fi
 SESSION_DIR="${SYNOLOGY_ROOT}/${SESSION}"
 [[ -d "$SESSION_DIR" ]] || die "No such session in queue: $SESSION"
 
+if notready_exists "$SESSION"; then
+  die "$SESSION is still being transferred (not fully parked yet) — wait for 'digi park' to finish before marking it complete."
+fi
+
 if lock_exists "$SESSION"; then
   holder_mac="$(lock_field "$SESSION" mac)"
   holder_user="$(lock_field "$SESSION" user)"

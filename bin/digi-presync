@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# DESC: Background: pre-sync stable raw capture files to Synology ahead of 'digi park'.
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+require_cmd rsync find
+
+usage() {
+  cat <<EOF
+Usage: digi presync [--min-age-minutes N]
+
+Meant to be run periodically (e.g. every 60s via launchd), NOT
+interactively. One pass: for every already-unpacked session under this
+machine's capture_root, rsyncs raw capture files (.IIQ/.CR3) that have
+been stable on disk for at least --min-age-minutes (default 1) to the
+same path on the Synology queue — skipping the session's .cosessiondb
+and the whole CaptureOne/ cache+settings tree, which stay local until
+'digi park' does the real, final handoff.
+
+"Stable" means: last modified at least --min-age-minutes ago, checked
+against the LOCAL file on this machine (not the Synology copy, so
+there's no clock-skew concern between the two). This is what keeps
+presync from ever grabbing a raw file mid-write from the camera.
+
+Marks each session "not ready" on Synology (hidden from digi
+queue/status/checkout) on first contact; only 'digi park' clears that
+marker, once a full transfer is verified. So presync moves the bulk of
+the data early, but never makes a session available on its own.
+
+Skips (does not error on) any session that's:
+  - still packed (any .eip present) — packing rewrites the whole
+    archive on every edit, so file-mtime staleness alone doesn't prove
+    a packed file is safe to copy the way it does for a plain raw file.
+  - already present on Synology under this name WITHOUT a not-ready
+    marker (looks like a real, already-parked or checked-out session —
+    a same-named local + remote session is unexpected; left alone for
+    a human to look at rather than silently merged into).
+
+One bad session should never stop the whole pass — errors are logged
+with 'warn' and the loop moves on to the next session.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+MIN_AGE_MIN=1
+if [[ "${1:-}" == "--min-age-minutes" ]]; then
+  MIN_AGE_MIN="${2:?--min-age-minutes needs a value}"
+fi
+
+CAPTURE_ROOT="$(capture_root)"
+SYNOLOGY_ROOT="$(synology_sessions_root)"
+
+rsync_args
+
+shopt -s nullglob
+for d in "$CAPTURE_ROOT"/*/; do
+  name="${d%/}"; name="${name##*/}"
+  [[ "$name" == .* || "$name" == _* ]] && continue
+
+  SRC="${CAPTURE_ROOT}/${name}"
+  DST="${SYNOLOGY_ROOT}/${name}"
+
+  n_eip="$(packed_file_count "$SRC")"
+  if [[ "$n_eip" -gt 0 ]]; then
+    continue
+  fi
+
+  if [[ -d "$DST" ]]; then
+    if ! notready_exists "$name"; then
+      # Looks like an already-parked or checked-out session with the same
+      # name as something currently sitting in capture_root. Unexpected —
+      # leave it alone rather than guess.
+      warn "presync: $name exists on Synology and isn't marked not-ready (already parked/checked out?) — skipping."
+      continue
+    fi
+  else
+    mkdir -p "$DST"
+    notready_write "$name" "presync"
+  fi
+
+  FILELIST="$(mktemp)"
+  find "$SRC" \( -iname "*.IIQ" -o -iname "*.CR3" \) -type f -mmin "+${MIN_AGE_MIN}" \
+    ! -path "*/CaptureOne/*" -print | sed "s#^${SRC}/##" > "$FILELIST"
+
+  if [[ -s "$FILELIST" ]]; then
+    if ! rsync "${RSYNC_ARGS[@]}" --files-from="$FILELIST" "$SRC/" "$DST/"; then
+      warn "presync: rsync had issues for $name (will retry next pass)"
+    fi
+  fi
+  rm -f "$FILELIST"
+done
+shopt -u nullglob

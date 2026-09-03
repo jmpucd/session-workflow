@@ -34,6 +34,29 @@ What happens:
 **If Capture One has the session open, this will refuse.** Close the session
 in Capture One first.
 
+### Why `park` might feel fast (background presync)
+
+On the capture station, `digi presync` runs quietly in the background
+(every 60 seconds, via launchd — see `etc/launchd/`) the whole time you're
+shooting. It copies raw capture files (`.IIQ`/`.CR3`) over to the Synology
+as soon as each one has sat still for a minute — long enough to know the
+camera's actually done writing it — while leaving the session's database
+alone, since that's the one file that's genuinely unsafe to copy while
+Capture One still has it open.
+
+That means most of a session's data is usually already on the Synology
+*before* you ever run `park`. `park` still does a full sync (so it also
+catches whatever wasn't old enough yet, plus the database), but it's often
+just picking up the last few files — the slow part happened earlier,
+spread out over the whole shoot instead of dumped on you right when you're
+trying to hand off.
+
+A session mid-presync (or mid-park) is invisible to everyone else — it
+won't show up in `digi queue`/`digi status`, and `digi checkout` refuses
+it outright — until the transfer is fully verified. So presync moves data
+early, but never makes a session available on its own; only a completed
+`park` does that.
+
 ### `digi checkout` — pick a session to work on
 
 Run this on whichever Mac you're sitting at (yours, edit-mini-1, edit-mini-2).

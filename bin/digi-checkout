@@ -17,6 +17,10 @@ Macs know it's taken. When you're done editing, run 'digi checkin'.
 Sessions marked done ('digi complete') are left out of the picker.
 Naming one explicitly still works, but asks you to confirm first.
 
+Sessions still being transferred (presync in progress, or a park that
+hasn't finished/verified yet) are refused outright — the copy on
+Synology may genuinely be incomplete.
+
 Reads:
   paths.local_working       (this machine's config)
   sessions.synology_root    (this machine's config)
@@ -36,6 +40,7 @@ for d in "$SYNOLOGY_ROOT"/*/; do
   [[ "$name" == .* || "$name" == _* ]] && continue
   [[ -f "${d}.digi.lock.yaml" ]] && continue
   session_is_complete "$name" && continue
+  notready_exists "$name" && continue
   AVAILABLE+=( "$name" )
 done
 shopt -u nullglob
@@ -59,6 +64,10 @@ SRC="${SYNOLOGY_ROOT}/${SESSION}"
 DST="${LOCAL_ROOT}/${SESSION}"
 
 [[ -d "$SRC" ]] || die "No such session in queue: $SESSION"
+
+if notready_exists "$SESSION"; then
+  die "$SESSION is still being transferred (not fully parked yet) — the copy on Synology may be incomplete. Try again once 'digi park' has finished."
+fi
 
 if session_is_complete "$SESSION"; then
   comp_user="$(complete_field "$SESSION" user)"

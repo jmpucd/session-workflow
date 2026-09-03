@@ -14,6 +14,12 @@ Pushes a completed Capture One session from this machine's capture_root to
 the Synology queue, then removes the local copy. Other Macs can then
 'digi checkout' to work on it.
 
+If 'digi presync' has already been staging this session's stable raw
+files in the background, this only has to transfer the database and any
+very recent stragglers — most of the data movement already happened
+before you ran this. Either way, the session stays hidden from
+queue/status/checkout until the transfer is fully verified.
+
 Refuses to park if Capture One has the session open.
 
 Reads:
@@ -40,8 +46,8 @@ DST="${SYNOLOGY_ROOT}/${SESSION}"
 assert_capture_one_idle "$SRC"
 assert_session_unpacked "$SRC"
 
-if [[ -e "$DST" ]]; then
-  warn "$DST already exists on Synology — this will sync in place (no overwrite of newer files on Synology)."
+if [[ -e "$DST" ]] && ! notready_exists "$SESSION"; then
+  warn "$DST already exists on Synology and isn't mid-presync — this will sync in place (no overwrite of newer files on Synology)."
   confirm "Continue?" || die "Aborted."
 fi
 
@@ -51,12 +57,22 @@ log "Parking $SESSION"
 log "  from: $SRC ($(session_size_pretty "$SRC"))"
 log "  to:   $DST"
 
-rsync_args
 mkdir -p "$DST"
+# Mark not-ready before transferring (harmless no-op if digi-presync already
+# has). This is what keeps the session hidden from queue/status/checkout for
+# the whole transfer, not just "directory happens to exist yet".
+notready_write "$SESSION" "park"
+
+rsync_args
 rsync "${RSYNC_ARGS[@]}" "$SRC/" "$DST/"
 
 # Sanity check: destination has files
-[[ -n "$(ls -A "$DST" 2>/dev/null)" ]] || die "rsync finished but $DST is empty — refusing to remove local copy."
+if [[ -z "$(ls -A "$DST" 2>/dev/null)" ]]; then
+  die "rsync finished but $DST is empty — refusing to remove local copy. Not clearing the not-ready marker either; investigate before retrying."
+fi
+
+# This is the real "officially parked" moment — only now is it visible.
+notready_clear "$SESSION"
 
 log "Removing local copy: $SRC"
 rm -rf "$SRC"

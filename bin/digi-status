@@ -29,9 +29,14 @@ MINE=()
 OTHERS=()
 AVAILABLE=0
 COMPLETE=0
+PRESYNCING=0
 for d in "$SYNOLOGY_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
   [[ "$name" == .* || "$name" == _* ]] && continue
+  if notready_exists "$name"; then
+    PRESYNCING=$(( PRESYNCING + 1 ))
+    continue
+  fi
   if session_is_complete "$name"; then
     COMPLETE=$(( COMPLETE + 1 ))
     continue
@@ -74,3 +79,7 @@ echo "  $AVAILABLE session(s) waiting. Run 'digi queue' to list them."
 echo
 echo "── Marked complete ─────────────────────────────────────────"
 echo "  $COMPLETE session(s). Run 'digi queue --all' to list them."
+
+echo
+echo "── Still being transferred (not yet parked) ─────────────────"
+echo "  $PRESYNCING session(s)."

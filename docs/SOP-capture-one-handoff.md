@@ -4,8 +4,8 @@
 |-----------------|---------------------------------------------------|
 | **Owner**       | John Pike, Digitization Services Specialist       |
 | **Audience**    | John + student assistants                         |
-| **Version**     | 1.1                                               |
-| **Effective**   | 2026-05-17 (§5.4 "Mark a session done" added 2026-09-02) |
+| **Version**     | 1.2                                               |
+| **Effective**   | 2026-05-17 (§5.4 "Mark a session done" added 2026-09-02; background presync note added 2026-09-03) |
 | **Review**      | Annually, or when the workflow changes            |
 | **Tool**        | `digi` (UC Davis Library digitization-tasks-helper) |
 
@@ -85,6 +85,14 @@ hand-off. `digi park` and `digi checkin` refuse any session containing
    digi queue
    ```
    The session should appear as **available**.
+
+**Note:** on the capture station, `digi presync` runs in the background
+(launchd, every 60s — see `etc/launchd/README.md`) the whole time a
+session is being shot, quietly copying stable raw files to the Synology
+ahead of time. `park` still does a full sync and is what actually makes
+the session visible/available, but it's usually finishing a mostly-done
+transfer rather than starting one from scratch — see
+`docs/capture-one-workflow.md` for how that works.
 
 ### 5.2 Check out a session (start editing or QA)
 
@@ -239,6 +247,13 @@ If any of these happen, stop and contact John:
 - **Complete** — a marker (`.digi.complete.yaml`) flagging a parked session
   as done. Hides it from `digi queue`/`digi checkout`; does not move or
   delete anything.
+- **Presync** — background pre-staging of a session's stable raw files to
+  the Synology while it's still being captured (capture station only).
+- **Not-ready** — a marker (`.digi.notready.yaml`) meaning a session's
+  transfer to Synology isn't fully verified yet. Set by presync and by
+  `park` itself; only `park` clears it. Hides the session everywhere
+  (queue/status/checkout) until cleared — this, not "files exist on
+  disk", is what makes a session officially parked.
 - **Lock file** — `.digi.lock.yaml` inside a session folder on the Synology.
   Presence = checked out; absence = available.
 - **TB SSD** — Thunderbolt-attached external SSD used as fast local working

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>edu.ucdavis.library.digi-presync</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/.local/bin/digi</string>
+		<string>presync</string>
+		<string>--min-age-minutes</string>
+		<string>1</string>
+	</array>
+
+	<!-- Runs once at load, then every 60s. Not KeepAlive — each pass is a
+	     single, self-contained run; if one is somehow still running when the
+	     next is due, launchd just skips that tick rather than piling up. -->
+	<key>StartInterval</key>
+	<integer>60</integer>
+	<key>RunAtLoad</key>
+	<true/>
+
+	<!-- launchd agents get a minimal PATH (no Homebrew) — digi-presync needs
+	     yq/rsync on PATH via lib/sessions.sh's machine_get/rsync_args. -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/digi-presync.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/digi-presync.log</string>
+</dict>
+</plist>

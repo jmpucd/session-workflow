@@ -28,11 +28,17 @@ SYNOLOGY_ROOT="$(synology_sessions_root)"
 shopt -s nullglob
 ANY=0
 HIDDEN=0
+PRESYNCING=0
 printf '%-40s  %s\n' "SESSION" "STATUS"
 printf '%-40s  %s\n' "----------------------------------------" "------"
 for d in "$SYNOLOGY_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
   [[ "$name" == .* || "$name" == _* ]] && continue
+
+  if notready_exists "$name"; then
+    PRESYNCING=$(( PRESYNCING + 1 ))
+    continue
+  fi
 
   if session_is_complete "$name"; then
     if [[ $SHOW_ALL -eq 0 ]]; then
@@ -61,3 +67,4 @@ shopt -u nullglob
 
 [[ $ANY -eq 1 ]] || log "Queue is empty: no parked sessions in $SYNOLOGY_ROOT"
 [[ $HIDDEN -gt 0 ]] && log "$HIDDEN session(s) marked complete (hidden). Run 'digi queue --all' to see them."
+[[ $PRESYNCING -gt 0 ]] && log "$PRESYNCING session(s) still being transferred (not yet parked) — not shown."
