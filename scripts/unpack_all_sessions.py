@@ -50,6 +50,24 @@ def count_eip(session_dir: Path) -> int:
     return sum(1 for _ in session_dir.rglob("*.eip"))
 
 
+def capture_one_responsive(timeout_s: int = 20) -> bool:
+    """Quick liveness check before each session. A trivial Apple Event should
+    return almost instantly if Capture One's main thread isn't blocked —
+    e.g. behind a modal dialog (a stale-session recovery prompt, a version
+    upgrade prompt, another Automation permission dialog). Without this,
+    a single stuck session would make every session after it fail the same
+    way, one full --timeout at a time, and could burn an entire unattended
+    overnight run without making any further progress."""
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", 'tell application "Capture One 23" to count of documents'],
+            capture_output=True, text=True, timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return result.returncode == 0
+
+
 def unpack_one(cosessiondb: Path, trash_policy: str, timeout_s: int):
     cmd = ["osascript", str(APPLESCRIPT), str(cosessiondb), trash_policy]
     try:
@@ -105,7 +123,28 @@ def main():
 
     failures = []
     leftovers = []
+    attempted = 0
+    stopped_early_reason = None
     for name, cosessiondb, eip_before in sessions:
+        if not capture_one_responsive():
+            stopped_early_reason = (
+                "Capture One did not respond to a trivial query — it's likely stuck behind a "
+                "dialog on screen (a stale-session recovery/upgrade prompt, another Automation "
+                "permission prompt, etc). Stopping here instead of letting every remaining "
+                "session fail the same way. Check Versa's screen, dismiss whatever's blocking "
+                "it, and re-run with --only/--limit to pick up the rest."
+            )
+            print(f"\n!!! {stopped_early_reason}")
+            with log_path.open("a") as f:
+                f.write(json.dumps({
+                    "event": "stopped_early",
+                    "reason": stopped_early_reason,
+                    "remaining_sessions": [s[0] for s in sessions[attempted:]],
+                    "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }) + "\n")
+            break
+
+        attempted += 1
         session_dir = cosessiondb.parent
         print(f"--- {name} ({eip_before} .eip) ---", flush=True)
         t0 = time.time()
@@ -141,7 +180,9 @@ def main():
                 "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }) + "\n")
 
-    print(f"\nDone. {len(sessions) - len(failures)}/{len(sessions)} succeeded via AppleScript.")
+    if stopped_early_reason:
+        print(f"\nSTOPPED EARLY after {attempted}/{len(sessions)} session(s) — {len(sessions) - attempted} not attempted.")
+    print(f"\n{attempted - len(failures)}/{attempted} attempted session(s) succeeded via AppleScript.")
     if failures:
         print("AppleScript-level failures (check the log, may need a manual pass in Capture One):")
         for name in failures:
