@@ -68,16 +68,38 @@ def find_stray_eips(session_dir: Path):
     return sorted(session_dir.rglob("*.eip"))
 
 
+# Real raw image data — NEVER treat one of these as a "sidecar" of
+# something else, no matter where it lives or what its filename matches.
+RAW_IMAGE_EXTENSIONS = {".iiq", ".cr3", ".eip"}
+
+
 def find_related_files(session_dir: Path, eip_path: Path):
-    """Every file anywhere in the session sharing the .eip's base filename
-    (its stem) — Capture One's cache/settings sidecars for one image are
-    scattered across Cache/Proxies, Cache/Thumbnails, Settings153/, not
-    sitting next to the .eip itself."""
+    """Capture One cache/settings sidecars for this one image — scattered
+    across Cache/Proxies, Cache/Thumbnails, Settings153/, not sitting next
+    to the .eip itself, but always somewhere under a CaptureOne/ folder.
+
+    Matching is deliberately narrow: same base filename stem AND under a
+    CaptureOne/ path AND not itself a raw image extension. A same-stem
+    match alone is NOT enough — a session can have a real, already-unpacked
+    .iiq sitting in its normal location sharing a stem with an unrelated
+    orphaned .eip elsewhere (observed on Beinen_Und_Beinenvolker); matching
+    on stem alone would have swept up real image data.
+    """
     stem = eip_path.stem  # e.g. "D-738_5_3_0033" from "D-738_5_3_0033.eip"
     related = []
     for p in session_dir.rglob(f"{stem}*"):
-        if p.is_file() and p != eip_path:
-            related.append(p)
+        if not p.is_file() or p == eip_path:
+            continue
+        # Require a real boundary right after the stem (name == stem, or
+        # stem followed by "."), not just "starts with" — a short stem
+        # could otherwise prefix-match an unrelated longer filename.
+        if not (p.name == stem or p.name.startswith(stem + ".")):
+            continue
+        if "CaptureOne" not in p.relative_to(session_dir).parts:
+            continue
+        if p.suffix.lower() in RAW_IMAGE_EXTENSIONS:
+            continue
+        related.append(p)
     return related
 
 
