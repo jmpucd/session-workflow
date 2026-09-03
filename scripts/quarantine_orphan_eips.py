@@ -15,10 +15,18 @@ This is a one-time backlog-clearing step, not a permanent workflow: going
 forward, captures land as loose IIQ/CR3 from the start (Pack as EIP is
 already off on Versa), so this situation shouldn't recur.
 
-What it does, per session:
-  1. Skips the session outright if Capture One currently has it open (same
-     check digi park/checkin use) — safe to run alongside an in-progress
-     unpack pass, it just skips whatever's actively being worked on.
+What it does:
+  0. Refuses to run AT ALL if unpack_all_sessions.py or an unpack_session
+     .applescript pass looks active anywhere (pgrep). NOT safe to run
+     alongside an in-progress unpack pass — learned this the hard way: the
+     per-session "is Capture One using this session right now" check below
+     has a real gap (its WAL file can be transiently absent even while
+     actively working a session), and by the time that check would catch
+     it, files can already be mid-flight in the unpack pass's own AppleScript
+     loop. This global check is the actual guard; the per-session one below
+     is belt-and-suspenders on top of it, not a substitute for it.
+  1. Per session, also skips it if Capture One currently has it open (same
+     WAL/SHM + process check digi park/checkin use).
   2. Finds every remaining .eip, plus any file elsewhere in the session
      that shares its base filename (Capture One's Cache/Proxies,
      Cache/Thumbnails, Settings153 sidecars — scattered, not co-located).
@@ -111,6 +119,26 @@ def main():
     ap.add_argument("--synology-root", default="/Volumes/Digitization_Files/capture_sessions",
                      help="Used only to record the eventual destination path in the manifest — nothing is written there")
     args = ap.parse_args()
+
+    # Global guard, not just the per-session busy check below: tonight's
+    # real run hit this — unpack_all_sessions.py builds its list of images
+    # to unpack once, then works through it in one long AppleScript call
+    # per session. The per-session "does this session look busy right now"
+    # check has a real gap (Capture One's WAL file can be transiently
+    # absent even while it's actively working a session), and by the time
+    # it fires, the unpack pass may already have files mid-flight that
+    # this script would then yank out from under it. Simplest reliable
+    # fix: don't run AT ALL while an unpack pass might be active, anywhere.
+    for pattern in ("unpack_all_sessions.py", "unpack_session.applescript"):
+        try:
+            result = subprocess.run(["pgrep", "-f", pattern], capture_output=True, timeout=10)
+        except subprocess.TimeoutExpired:
+            continue
+        if result.returncode == 0:
+            print(f"Refusing to run: '{pattern}' is currently active — an unpack pass may be")
+            print("mid-flight. Wait for it to finish (check with 'screen -r' or 'ps aux | grep")
+            print("unpack'), then re-run this.")
+            sys.exit(1)
 
     root = Path(args.root)
     if not root.is_dir():
