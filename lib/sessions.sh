@@ -369,10 +369,17 @@ assert_capture_one_idle() {
 # it was captured/imported packed.
 
 # Print the number of packed (.eip) files found under a dir (0 if none).
+# Skips any dot/underscore-prefixed subdirectory (e.g. _orphaned_eips,
+# _migration) — same "not a real session" convention used everywhere else
+# (session_pick, digi-queue, digi-status, digi-presync all skip these at
+# the top level). Matters here because digi-doctor calls this on the whole
+# capture_root, not just one session, and _orphaned_eips holds intentionally
+# -quarantined stragglers that were already dealt with — counting those
+# again here just makes `digi doctor` look alarming for no reason.
 packed_file_count() {
   local dir="$1"
   [[ -d "$dir" ]] || { printf '0\n'; return; }
-  find "$dir" -type f -iname '*.eip' 2>/dev/null | wc -l | tr -d ' '
+  find "$dir" \( -name '.*' -o -name '_*' \) -prune -o -type f -iname '*.eip' -print 2>/dev/null | wc -l | tr -d ' '
 }
 
 # Die if the session contains packed (.eip) files.
