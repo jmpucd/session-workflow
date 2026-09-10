@@ -14,6 +14,11 @@ Pushes the local working copy of a session back to the Synology queue and
 releases the lock so other Macs can pick it up next. Prompts for what
 stage of work was done and any notes — these go to the shared log.
 
+Picking stage "done" offers to also mark the session complete right
+then (same as running 'digi complete' afterward) — one flow instead of
+two commands, since 'digi complete' can't run until the lock this
+checkin just released is gone anyway.
+
 Refuses to check in if Capture One has the session open or if this
 machine isn't the lock holder.
 EOF
@@ -105,3 +110,12 @@ lock_clear "$SESSION"
 
 log "✓ Checked in. Lock released."
 log "  Local copy at $SRC is still here — delete it manually when you're confident the Synology copy is good."
+
+if [[ "$STAGE" == "done" ]] && ! session_is_complete "$SESSION"; then
+  if confirm "Mark $SESSION complete too (hides it from 'digi queue'/'digi checkout')?"; then
+    complete_write "$SESSION" "$USER_NAME" "$NOTES"
+    COMPLETE_EXTRA="$(jq -c -n --arg notes "$NOTES" '{notes:$notes}')"
+    log_event complete "$SESSION" "$USER_NAME" "$COMPLETE_EXTRA"
+    log "✓ Marked complete. $SESSION is hidden from 'digi queue' and 'digi checkout'."
+  fi
+fi
