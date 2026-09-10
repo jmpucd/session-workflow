@@ -66,9 +66,17 @@ notready_write "$SESSION" "park"
 rsync_args
 rsync "${RSYNC_ARGS[@]}" "$SRC/" "$DST/"
 
-# Sanity check: destination has files
-if [[ -z "$(ls -A "$DST" 2>/dev/null)" ]]; then
-  die "rsync finished but $DST is empty — refusing to remove local copy. Not clearing the not-ready marker either; investigate before retrying."
+# Verify by content checksum, not just "the destination isn't empty" — that
+# old check would pass even on a partial/corrupt transfer as long as SOME
+# file landed. Only ">f" lines are real file differences; directory-level
+# attribute-only lines (e.g. mtime) are noise — each side's directory
+# timestamp updates independently and means nothing about content.
+log "Verifying Synology copy matches local byte-for-byte before removing local..."
+DIFF_OUTPUT="$(rsync -a --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
+if [[ -n "$DIFF_OUTPUT" ]]; then
+  warn "Synology copy does NOT verify as identical to local — differences:"
+  printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done
+  die "Not removing local copy, and not clearing the not-ready marker either — investigate before retrying 'digi park'."
 fi
 
 # This is the real "officially parked" moment — only now is it visible.
