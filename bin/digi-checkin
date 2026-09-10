@@ -17,7 +17,11 @@ stage of work was done and any notes — these go to the shared log.
 Picking stage "done" offers to also mark the session complete right
 then (same as running 'digi complete' afterward) — one flow instead of
 two commands, since 'digi complete' can't run until the lock this
-checkin just released is gone anyway.
+checkin just released is gone anyway. If you confirm, it also verifies
+the local copy against Synology by content checksum (not just "rsync
+didn't error") and removes the local copy once confirmed identical —
+"complete" means genuinely done, so the local copy shouldn't linger
+the way it deliberately does after a plain checkin.
 
 Refuses to check in if Capture One has the session open or if this
 machine isn't the lock holder.
@@ -117,5 +121,28 @@ if [[ "$STAGE" == "done" ]] && ! session_is_complete "$SESSION"; then
     COMPLETE_EXTRA="$(jq -c -n --arg notes "$NOTES" '{notes:$notes}')"
     log_event complete "$SESSION" "$USER_NAME" "$COMPLETE_EXTRA"
     log "✓ Marked complete. $SESSION is hidden from 'digi queue' and 'digi checkout'."
+
+    # "Complete" means genuinely done — unlike a plain checkin (where the
+    # local copy deliberately stays, since re-checkout during active
+    # editing is likely), this is the point John wants local copies
+    # actually cleaned up automatically, not left for someone to
+    # "eventually" delete once they feel confident. So verify for real
+    # (content checksum, not just "rsync didn't error") and only then
+    # remove it — never leave that judgment call to human memory.
+    log "Verifying local copy matches Synology byte-for-byte before removing it..."
+    # Only lines starting with ">f" mean an actual file would be transferred
+    # (real content/size/existence difference). Directory-only attribute
+    # lines like ".d..t...... ./" are just mtime noise — every directory's
+    # timestamp updates independently on each side as files come and go
+    # locally vs. on Synology, and don't reflect any real difference.
+    DIFF_OUTPUT="$(rsync -a --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
+    if [[ -n "$DIFF_OUTPUT" ]]; then
+      warn "Local copy at $SRC does NOT verify as identical to the Synology copy — leaving it in place:"
+      printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done
+      warn "Investigate before deleting $SRC manually."
+    else
+      rm -rf "$SRC"
+      log "✓ Verified identical. Removed local copy: $SRC"
+    fi
   fi
 fi
