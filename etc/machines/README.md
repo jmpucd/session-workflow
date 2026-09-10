@@ -7,7 +7,18 @@ etc/machines/<hostname>.yaml
 ```
 
 `install.sh` creates one from `_template.yaml` on first run. Edit it to match
-the machine's role and paths.
+the machine's paths.
+
+## `role:` is a label, not a restriction
+
+The `role` field (capture | edit | laptop | nas | server) is informational
+only — `digi doctor` prints it, and nothing else in the codebase reads it.
+What a machine can actually do is determined purely by which `paths.*`
+fields are filled in: set `capture_root` and `digi park` works; set
+`local_working` and `digi checkout`/`checkin` work. Fill in both if a
+machine genuinely does both (a capture station that also edits locally,
+an edit machine that occasionally captures) — there's no exclusive
+category forcing a choice.
 
 ## Conventions
 

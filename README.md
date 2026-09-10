@@ -24,8 +24,9 @@ It will:
 
 1. Install Homebrew dependencies from `Brewfile` (rsync, ffmpeg, exiftool, etc.).
 2. Symlink `bin/digi` into `/usr/local/bin` (or `~/.local/bin` on Apple Silicon).
-3. Create a per-machine config at `etc/machines/$(hostname -s).yaml` if missing,
-   prompting for which role this machine plays (capture / edit / laptop / server).
+3. Create a per-machine config at `etc/machines/$(hostname -s).yaml` if missing
+   (copied from the template — edit it afterward to fill in this machine's
+   paths; see `etc/machines/README.md`).
 
 ## Usage
 
@@ -81,14 +82,21 @@ inbox/
   2026-05-15-NOTES.md          # what was I doing, what worked, what didn't
 ```
 
-## Machine roles
+## Machines, typically
+
+`role:` in a machine's config is just a label for `digi doctor` to print —
+it doesn't restrict anything. What a machine can actually do comes from
+which paths are filled in (`capture_root` for `park`, `local_working` for
+`checkout`/`checkin`), and a machine can have both if that's how it's
+really used. The table below is what each machine happens to be set up
+for today, not a fixed category:
 
 | Role     | Hostname (example) | What it does                                    |
 |----------|--------------------|-------------------------------------------------|
-| capture  | mac-studio-versa   | Phase One iXG + Capture One, primary ingest     |
+| capture  | mac-studio-versa   | Phase One iXG + Capture One, primary ingest — also edits locally (`local_working` set alongside `capture_root`) |
 | edit     | mac-mini-edit-1    | post-processing, batch derivatives              |
 | edit     | mac-mini-edit-2    | post-processing, AV digitization                |
-| laptop   | jmpike-mbp         | admin, scripting, light review                  |
+| laptop   | jmpike-mbp         | admin, scripting, editing sessions              |
 | nas      | synology           | working storage, transfer hub                   |
 | server   | campus-centos      | long-term backup, ffmpeg jobs, SC delivery hub  |
 

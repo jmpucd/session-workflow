@@ -2,20 +2,32 @@
 # Copy of this template is created automatically by install.sh as
 # etc/machines/<hostname>.yaml. Edit values to match this machine.
 
-# What this machine is used for. One of:
+# What this machine is *primarily* used for. One of:
 #   capture | edit | laptop | nas | server
+# This is a label only — nothing in digi actually checks it. What a
+# machine can do is entirely determined by which paths below are filled
+# in: set capture_root and digi park works here; set local_working and
+# digi checkout/checkin work here. A machine can have both filled in at
+# once if that's genuinely how it's used (e.g. a capture station that
+# also does its own edits locally, or an edit machine that occasionally
+# captures) — there's no exclusive category to pick between.
 role: edit
 
-# Filesystem paths used by digi commands. Leave blank if not applicable.
+# Filesystem paths used by digi commands. Leave blank if not applicable
+# — but "not applicable" is about how this machine is actually used, not
+# about its role label above. Fill in whichever of these actually apply,
+# independently of each other.
 paths:
-  # Where Capture One captures land locally on this machine.
-  # Typically only set on the capture station (e.g. ~/Pictures/capture_sessions).
+  # Where Capture One captures land locally on this machine. Set this
+  # wherever captures actually happen — typically the capture station,
+  # but nothing stops another machine from having this set too.
   capture_root: ""
 
-  # Where sessions live while being worked on locally (cropping/QA).
-  # On editing minis this should point at the fast TB-attached SSD,
-  # e.g. /Volumes/Edit_SSD/capture_sessions.
-  # On the capture station this can match capture_root.
+  # Where sessions live while being worked on locally (cropping/QA). Set
+  # this wherever checkout/checkin should work — a capture station that
+  # also edits locally can set this to the same path as capture_root; an
+  # editing mini should point it at the fast TB-attached SSD, e.g.
+  # /Volumes/Edit_SSD/capture_sessions.
   local_working: ""
 
   # Where AV digitization output lands locally.
