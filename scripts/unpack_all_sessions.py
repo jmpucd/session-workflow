@@ -8,9 +8,14 @@ then go clean up the Trash collection, by hand, 46 times.
 
 Run this ON the capture station (Versa) — it needs Capture One installed
 and macOS's Automation permission already granted for this terminal/SSH
-session to control "Capture One 23" (macOS will prompt for this on first
-use; someone has to be at the physical console or a screen-share to
-approve it).
+session to control it (macOS will prompt for this on first use; someone
+has to be at the physical console or a screen-share to approve it).
+
+Detects whichever "Capture One*.app" is actually in /Applications rather
+than hardcoding a name/version — it already changed once mid-project
+("Capture One 23" -> plain "Capture One" on the 16.8 update), and even
+the bundle identifier version-bumps (com.captureone.captureoneNN), so
+there's nothing truly stable to hardcode.
 
 Usage:
     python3 unpack_all_sessions.py --dry-run              # see what would run
@@ -50,7 +55,19 @@ def count_eip(session_dir: Path) -> int:
     return sum(1 for _ in session_dir.rglob("*.eip"))
 
 
-def capture_one_responsive(timeout_s: int = 20) -> bool:
+def find_capture_one_app_name() -> str:
+    """Whatever's actually installed, not a hardcoded name/version — see
+    the module docstring for why (it's already drifted once)."""
+    candidates = sorted(Path("/Applications").glob("Capture One*.app"))
+    if not candidates:
+        raise RuntimeError("No 'Capture One*.app' found in /Applications")
+    for c in candidates:
+        if c.name == "Capture One.app":
+            return "Capture One"
+    return candidates[0].stem
+
+
+def capture_one_responsive(app_name: str, timeout_s: int = 20) -> bool:
     """Quick liveness check before each session. A trivial Apple Event should
     return almost instantly if Capture One's main thread isn't blocked —
     e.g. behind a modal dialog (a stale-session recovery prompt, a version
@@ -60,7 +77,7 @@ def capture_one_responsive(timeout_s: int = 20) -> bool:
     overnight run without making any further progress."""
     try:
         result = subprocess.run(
-            ["osascript", "-e", 'tell application "Capture One 23" to count of documents'],
+            ["osascript", "-e", f'tell application "{app_name}" to count of documents'],
             capture_output=True, text=True, timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:
@@ -68,8 +85,8 @@ def capture_one_responsive(timeout_s: int = 20) -> bool:
     return result.returncode == 0
 
 
-def unpack_one(cosessiondb: Path, trash_policy: str, timeout_s: int):
-    cmd = ["osascript", str(APPLESCRIPT), str(cosessiondb), trash_policy]
+def unpack_one(cosessiondb: Path, trash_policy: str, timeout_s: int, app_name: str):
+    cmd = ["osascript", str(APPLESCRIPT), str(cosessiondb), trash_policy, app_name]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired:
@@ -110,6 +127,13 @@ def main():
         print(f"No packed (.eip) sessions found under {root}. Nothing to do.")
         return
 
+    try:
+        app_name = find_capture_one_app_name()
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    print(f"Using Capture One app: {app_name!r}")
+
     print(f"{len(sessions)} packed session(s) to process (trash policy: {args.trash_policy}):")
     for name, _, n in sessions:
         print(f"  {n:6d}  {name}")
@@ -126,7 +150,7 @@ def main():
     attempted = 0
     stopped_early_reason = None
     for name, cosessiondb, eip_before in sessions:
-        if not capture_one_responsive():
+        if not capture_one_responsive(app_name):
             stopped_early_reason = (
                 "Capture One did not respond to a trivial query — it's likely stuck behind a "
                 "dialog on screen (a stale-session recovery/upgrade prompt, another Automation "
@@ -148,7 +172,7 @@ def main():
         session_dir = cosessiondb.parent
         print(f"--- {name} ({eip_before} .eip) ---", flush=True)
         t0 = time.time()
-        ok, message = unpack_one(cosessiondb, args.trash_policy, args.timeout)
+        ok, message = unpack_one(cosessiondb, args.trash_policy, args.timeout, app_name)
         elapsed = time.time() - t0
         status = "OK" if ok else "FAIL"
         print(f"{status} ({elapsed:.0f}s): {message}")
