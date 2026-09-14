@@ -135,7 +135,13 @@ if [[ "$STAGE" == "done" ]] && ! session_is_complete "$SESSION"; then
     # lines like ".d..t...... ./" are just mtime noise — every directory's
     # timestamp updates independently on each side as files come and go
     # locally vs. on Synology, and don't reflect any real difference.
-    DIFF_OUTPUT="$(rsync -a --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
+    #
+    # MUST reuse RSYNC_ARGS (same --exclude list as the real push above) —
+    # a live incident on digi-park's copy of this same check compared with
+    # no excludes at all and "found" every Capture One cache/thumbnail file
+    # (deliberately excluded from the real transfer as regenerable junk)
+    # missing from the destination, refusing an otherwise-intact session.
+    DIFF_OUTPUT="$(rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
     if [[ -n "$DIFF_OUTPUT" ]]; then
       warn "Local copy at $SRC does NOT verify as identical to the Synology copy — leaving it in place:"
       printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done

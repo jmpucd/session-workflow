@@ -71,8 +71,17 @@ rsync "${RSYNC_ARGS[@]}" "$SRC/" "$DST/"
 # file landed. Only ">f" lines are real file differences; directory-level
 # attribute-only lines (e.g. mtime) are noise — each side's directory
 # timestamp updates independently and means nothing about content.
+#
+# MUST reuse the same RSYNC_ARGS (and thus the same --exclude list) as the
+# real transfer above — a live incident (2026-09-14) had this comparing
+# with no excludes at all, so it "found" every Capture One cache/thumbnail
+# file (Cache/, Proxies/, .DS_Store — all deliberately excluded from the
+# real transfer as regenerable junk) as "missing" from the destination and
+# refused to park a totally intact session. No data was ever at risk
+# (refusing to delete is the safe direction), but it would have blocked
+# every real session, since real sessions always have this cache junk.
 log "Verifying Synology copy matches local byte-for-byte before removing local..."
-DIFF_OUTPUT="$(rsync -a --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
+DIFF_OUTPUT="$(rsync "${RSYNC_ARGS[@]}" --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
 if [[ -n "$DIFF_OUTPUT" ]]; then
   warn "Synology copy does NOT verify as identical to local — differences:"
   printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done
