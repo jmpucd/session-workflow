@@ -52,6 +52,15 @@ local_working_root() {
   printf '%s\n' "$root"
 }
 
+# Capture root, or empty if this machine doesn't have one configured
+# (park can still take an explicit path / search the Mac).
+capture_root_or_empty() {
+  local root
+  root="$(machine_get .paths.capture_root)"
+  root="${root/#\~/$HOME}"
+  [[ -d "$root" ]] && printf '%s\n' "$root" || true
+}
+
 # Capture root on this machine (where Capture One puts new captures).
 capture_root() {
   local root
@@ -98,6 +107,118 @@ session_pick() {
     done
     die "Cancelled."
   fi
+}
+
+# session_pick_source <capture_root-or-empty> <prompt>
+# Like session_pick, but for choosing a session ANYWHERE on this Mac to push
+# to the Synology. Lists capture_root's sessions first (if set), plus two
+# escape hatches — the capture station and laptops are chronically short on
+# space, so sessions get imported wherever there's room (external SSDs, other
+# folders) and not only under capture_root:
+#   • "Enter a path"  — type/paste a session folder (or its .cosessiondb)
+#   • "Search this Mac" — Spotlight (mdfind) for every *.cosessiondb on any
+#     mounted volume, then fzf over the results
+# Prints the ABSOLUTE session directory on stdout. Exits non-zero on cancel.
+session_pick_source() {
+  local parent="${1:-}"
+  local prompt="${2:-Pick a session}"
+  local OPT_PATH="  → Enter a path to a session…"
+  local OPT_FIND="  → Search this Mac for Capture One sessions…"
+
+  local entries=()
+  if [[ -n "$parent" && -d "$parent" ]]; then
+    local entry name
+    for entry in "$parent"/*/; do
+      [[ -d "$entry" ]] || continue
+      name="${entry%/}"; name="${name##*/}"
+      [[ "$name" == .* || "$name" == _* ]] && continue
+      entries+=( "$name" )
+    done
+  fi
+  entries+=( "$OPT_PATH" "$OPT_FIND" )
+
+  local pick
+  if command -v fzf >/dev/null 2>&1; then
+    pick="$(printf '%s\n' "${entries[@]}" | fzf --prompt="$prompt > " --height=40% --reverse)" \
+      || die "Cancelled."
+  else
+    PS3="$prompt > "
+    select pick in "${entries[@]}"; do
+      [[ -n "$pick" ]] && break
+      echo "Pick a number." >&2
+    done
+    [[ -n "$pick" ]] || die "Cancelled."
+  fi
+
+  case "$pick" in
+    "$OPT_PATH")
+      local typed
+      read -r -e -p "Session folder (or its .cosessiondb): " typed
+      [[ -n "$typed" ]] || die "Cancelled."
+      session_dir_from_path "$typed"
+      ;;
+    "$OPT_FIND")
+      session_search_this_mac "$prompt"
+      ;;
+    *)
+      printf '%s/%s\n' "$parent" "$pick"
+      ;;
+  esac
+}
+
+# session_dir_from_path <path>
+# Normalise something a human typed/pasted into an absolute session dir:
+# expands ~, strips trailing slashes and shell-escaped spaces (as pasted from
+# Finder drag-and-drop), and accepts the .cosessiondb file itself.
+session_dir_from_path() {
+  local p="$1"
+  p="${p//\\ / }"                 # Finder drag-drop escapes spaces
+  p="${p/#\~/$HOME}"
+  p="${p%/}"
+  [[ "$p" == *.cosessiondb && -f "$p" ]] && p="$(dirname "$p")"
+  [[ -d "$p" ]] || die "Not a directory: $p"
+  p="$(cd "$p" && pwd -P)"
+  if ! compgen -G "$p/*.cosessiondb" >/dev/null; then
+    warn "$p has no .cosessiondb — doesn't look like a Capture One session."
+    confirm "Use it anyway?" || die "Aborted."
+  fi
+  printf '%s\n' "$p"
+}
+
+# session_search_this_mac <prompt>
+# Spotlight for every *.cosessiondb on any indexed volume, minus ones already
+# sitting on the Synology queue, then let the user pick. Prints session dir.
+session_search_this_mac() {
+  local prompt="${1:-Pick a session}"
+  command -v mdfind >/dev/null 2>&1 || die "mdfind (Spotlight) not available on this machine."
+  local synology_root
+  synology_root="$(machine_get .sessions.synology_root)"
+  synology_root="${synology_root/#\~/$HOME}"
+
+  log "Searching this Mac (Spotlight) for Capture One sessions…" >&2
+  local dirs=()
+  local f d
+  while IFS= read -r f; do
+    d="$(dirname "$f")"
+    [[ -n "$synology_root" && "$d" == "$synology_root"/* ]] && continue
+    dirs+=( "$d" )
+  done < <(mdfind "kMDItemFSName == '*.cosessiondb'" 2>/dev/null | sort -u)
+
+  [[ ${#dirs[@]} -gt 0 ]] || die "Spotlight found no Capture One sessions on this Mac. (Unindexed drive? Use 'Enter a path' instead.)"
+
+  local pick
+  if command -v fzf >/dev/null 2>&1; then
+    pick="$(printf '%s\n' "${dirs[@]}" | sort -u | fzf --prompt="$prompt > " --height=60% --reverse)" \
+      || die "Cancelled."
+  else
+    PS3="$prompt > "
+    select pick in "${dirs[@]}"; do
+      [[ -n "$pick" ]] && break
+      echo "Pick a number." >&2
+    done
+    [[ -n "$pick" ]] || die "Cancelled."
+  fi
+  printf '%s\n' "$pick"
 }
 
 # ---- lock file -------------------------------------------------------------

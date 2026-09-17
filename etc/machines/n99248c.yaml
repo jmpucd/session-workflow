@@ -10,7 +10,7 @@ role: edit
 paths:
   # Where Capture One captures land locally on this machine.
   # Typically only set on the capture station (e.g. ~/Pictures/capture_sessions).
-  capture_root: ""
+  capture_root: "~/Pictures/capture_sessions"
 
   # Where sessions live while being worked on locally (cropping/QA).
   # On editing minis this should point at the fast TB-attached SSD,

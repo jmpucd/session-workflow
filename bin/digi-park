@@ -8,11 +8,21 @@ require_cmd rsync yq jq
 
 usage() {
   cat <<EOF
-Usage: digi park [<session-name>]
+Usage: digi park [<session-name> | <path-to-session>]
 
-Pushes a completed Capture One session from this machine's capture_root to
-the Synology queue, then removes the local copy. Other Macs can then
-'digi checkout' to work on it.
+Pushes a completed Capture One session from this Mac to the Synology queue,
+then removes the local copy. Other Macs can then 'digi checkout' to work on it.
+
+With no argument, shows a picker of the sessions in this machine's
+capture_root, plus two extra choices for sessions that live somewhere else
+(external SSD, another folder — anywhere there was room):
+  → Enter a path to a session      type or paste (drag from Finder works)
+  → Search this Mac                Spotlight finds every Capture One session
+                                   on any mounted volume; pick from the list
+
+An argument containing a slash (or ~) is treated as a path to the session
+folder; the folder's name becomes the session name on the Synology.
+Otherwise it's looked up as <capture_root>/<session-name>.
 
 If 'digi presync' has already been staging this session's stable raw
 files in the background, this only has to transfer the database and any
@@ -23,22 +33,26 @@ queue/status/checkout until the transfer is fully verified.
 Refuses to park if Capture One has the session open.
 
 Reads:
-  paths.capture_root        (this machine's config)
+  paths.capture_root        (this machine's config; optional if you give a path)
   sessions.synology_root    (this machine's config)
 EOF
 }
 
 case "${1:-}" in -h|--help) usage; exit 0;; esac
 
-CAPTURE_ROOT="$(capture_root)"
+CAPTURE_ROOT="$(capture_root_or_empty)"
 SYNOLOGY_ROOT="$(synology_sessions_root)"
 
-SESSION="${1:-}"
-if [[ -z "$SESSION" ]]; then
-  SESSION="$(session_pick "$CAPTURE_ROOT" "Pick a session to park")"
+ARG="${1:-}"
+if [[ -z "$ARG" ]]; then
+  SRC="$(session_pick_source "$CAPTURE_ROOT" "Pick a session to park")"
+elif [[ "$ARG" == */* || "$ARG" == "~"* ]]; then
+  SRC="$(session_dir_from_path "$ARG")"
+else
+  [[ -n "$CAPTURE_ROOT" ]] || die "paths.capture_root not set in $DIGI_MACHINE_CONFIG — give a path to the session instead (digi park /path/to/session)."
+  SRC="${CAPTURE_ROOT}/${ARG}"
 fi
-
-SRC="${CAPTURE_ROOT}/${SESSION}"
+SESSION="$(basename "$SRC")"
 DST="${SYNOLOGY_ROOT}/${SESSION}"
 
 [[ -d "$SRC" ]] || die "No such session: $SRC"

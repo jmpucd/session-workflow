@@ -18,12 +18,28 @@ Run this on the **capture station** when you're done shooting a session.
 $ digi park
 Pick a session to park:
   1) D-823_Some_Collection   (54 GB, 1,204 files)
+  2)   → Enter a path to a session…
+  3)   → Search this Mac for Capture One sessions…
 > 1
 Who are you?
   > sam
 Parking D-823_Some_Collection ...
 ✓ Parked. Session is now in the queue.
 ```
+
+**Session not in `capture_sessions/`?** Machines are always short on space,
+so sessions sometimes get imported wherever there's room (an external SSD,
+a different folder). The last two picker entries handle that:
+
+- **Enter a path** — type it, or drag the session folder from Finder into
+  the Terminal window and press Return. The `.cosessiondb` file itself works
+  too.
+- **Search this Mac** — uses Spotlight to list every Capture One session on
+  any mounted drive; pick from the list. (Drives with Spotlight indexing off
+  won't appear; use *Enter a path* for those.)
+
+You can also skip the picker: `digi park /Volumes/Fast_SSD/D-823_Some_Collection`.
+The folder's name becomes the session name on the Synology.
 
 What happens:
 
