@@ -11,6 +11,7 @@
 
 # Local-only machine config (real values, not tracked)
 etc/machines/*.local.yaml
+etc/machine-name
 etc/secrets/
 
 # Python

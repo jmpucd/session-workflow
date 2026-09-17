@@ -4,14 +4,14 @@
 set -euo pipefail
 source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
 
-log "Host:       $DIGI_HOSTNAME"
+log "Machine:    $DIGI_HOSTNAME  (from $(digi_machine_name_source "$DIGI_ETC_DIR"))"
 log "Repo:       $DIGI_REPO_DIR"
 log "Config:     $DIGI_MACHINE_CONFIG"
 
 if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
   log "Role:       $(machine_get .role)"
 else
-  warn "No machine config — run install.sh"
+  warn "No machine config — run install.sh, or set etc/machine-name to match an existing etc/machines/*.yaml"
 fi
 
 echo

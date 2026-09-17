@@ -1,5 +1,5 @@
 # Cross-machine defaults. Sourced by every digi command.
-# Per-machine values override these in etc/machines/<hostname>.yaml.
+# Per-machine values override these in etc/machines/<name>.yaml.
 
 rsync:
   # Flags applied to every rsync invocation across the toolkit.

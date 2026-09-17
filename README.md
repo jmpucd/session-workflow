@@ -24,9 +24,11 @@ It will:
 
 1. Install Homebrew dependencies from `Brewfile` (rsync, ffmpeg, exiftool, etc.).
 2. Symlink `bin/digi` into `/usr/local/bin` (or `~/.local/bin` on Apple Silicon).
-3. Create a per-machine config at `etc/machines/$(hostname -s).yaml` if missing
-   (copied from the template — edit it afterward to fill in this machine's
-   paths; see `etc/machines/README.md`).
+3. Pin a stable machine name in `etc/machine-name` (gitignored; defaults to
+   the Sharing-pane "Local hostname" — edit the file to pick a friendlier
+   name) and create `etc/machines/<name>.yaml` if missing (copied from the
+   template — edit it afterward to fill in this machine's paths; see
+   `etc/machines/README.md`).
 
 ## Usage
 

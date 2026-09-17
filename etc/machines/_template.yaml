@@ -1,6 +1,6 @@
 # Per-machine config for digi.
 # Copy of this template is created automatically by install.sh as
-# etc/machines/<hostname>.yaml. Edit values to match this machine.
+# etc/machines/<name>.yaml (name from etc/machine-name). Edit values to match this machine.
 
 # What this machine is *primarily* used for. One of:
 #   capture | edit | laptop | nas | server

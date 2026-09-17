@@ -5,7 +5,8 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOSTNAME_SHORT="$(hostname -s)"
+# shellcheck source=lib/machine-name.sh
+source "$REPO_DIR/lib/machine-name.sh"
 
 log()  { printf '\033[1;34m[install]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[install]\033[0m %s\n' "$*" >&2; }
@@ -40,9 +41,17 @@ log "Linked digi → $INSTALL_DIR/digi"
 # ---------------------------------------------------------------------------
 # 3. Per-machine config
 # ---------------------------------------------------------------------------
-MACHINE_CONFIG="$REPO_DIR/etc/machines/${HOSTNAME_SHORT}.yaml"
+# Pin this machine's name on first run so it never follows the network
+# (see lib/machine-name.sh). etc/machine-name is gitignored.
+MACHINE_NAME="$(digi_machine_name "$REPO_DIR/etc")"
+if [[ ! -s "$REPO_DIR/etc/machine-name" ]]; then
+  printf '%s\n' "$MACHINE_NAME" > "$REPO_DIR/etc/machine-name"
+  log "Pinned machine name '$MACHINE_NAME' in etc/machine-name (edit to rename)"
+fi
+
+MACHINE_CONFIG="$REPO_DIR/etc/machines/${MACHINE_NAME}.yaml"
 if [[ ! -f "$MACHINE_CONFIG" ]]; then
-  log "First run on $HOSTNAME_SHORT — creating $MACHINE_CONFIG"
+  log "First run on $MACHINE_NAME — creating $MACHINE_CONFIG"
   cp "$REPO_DIR/etc/machines/_template.yaml" "$MACHINE_CONFIG"
   warn "Edit $MACHINE_CONFIG to set this machine's role and paths."
 else

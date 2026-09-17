@@ -16,14 +16,17 @@ err()  { printf '\033[1;31m[%s ERR ]\033[0m %s\n' "$(_digi_ts)" "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
 # ---- machine config --------------------------------------------------------
-DIGI_HOSTNAME="$(hostname -s)"
+# Machine name is resolved by lib/machine-name.sh (NOT `hostname -s`, which
+# floats with the network on macOS). Pinned in etc/machine-name by install.sh.
+source "${DIGI_LIB_DIR}/machine-name.sh"
+DIGI_HOSTNAME="$(digi_machine_name "$DIGI_ETC_DIR")"
 DIGI_MACHINE_CONFIG="${DIGI_ETC_DIR}/machines/${DIGI_HOSTNAME}.yaml"
 
 # Read a key from the per-machine yaml. Requires `yq` (installed via Brewfile).
 # Usage: capture_root="$(machine_get .paths.capture_root)"
 machine_get() {
   local key="$1"
-  [[ -f "$DIGI_MACHINE_CONFIG" ]] || die "No machine config at $DIGI_MACHINE_CONFIG. Run install.sh."
+  [[ -f "$DIGI_MACHINE_CONFIG" ]] || die "No machine config at $DIGI_MACHINE_CONFIG (machine name from $(digi_machine_name_source "$DIGI_ETC_DIR")). Run install.sh, or set etc/machine-name to match an existing etc/machines/*.yaml."
   command -v yq >/dev/null 2>&1 || die "yq not installed (brew install yq)"
   yq -r "$key // \"\"" "$DIGI_MACHINE_CONFIG"
 }

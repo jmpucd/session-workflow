@@ -1,13 +1,21 @@
 # Per-machine config
 
-Each Mac that runs `digi` gets a YAML file here named after its short hostname:
+Each Mac that runs `digi` gets a YAML file here named after its machine name:
 
 ```
-etc/machines/<hostname>.yaml
+etc/machines/<name>.yaml
 ```
 
-`install.sh` creates one from `_template.yaml` on first run. Edit it to match
-the machine's paths.
+The name comes from the gitignored `etc/machine-name` file, which
+`install.sh` writes on first run (defaulting to the Sharing-pane "Local
+hostname"). It deliberately does NOT use `hostname -s`: on a Mac with no
+pinned HostName that value follows the network (e.g. `Mac` at home,
+`n99248c` on campus), which made `digi` lose its config on every move.
+To rename a machine, edit `etc/machine-name` and rename its YAML to match.
+`DIGI_MACHINE=<name>` overrides everything for a one-off run.
+
+`install.sh` creates the YAML from `_template.yaml` on first run. Edit it to
+match the machine's paths.
 
 ## `role:` is a label, not a restriction
 
