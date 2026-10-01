@@ -118,11 +118,12 @@ What happens:
 
 1. **Close the session in Capture One first.** Checkin will refuse if it's still open.
 2. The session rsyncs from your working drive back to the Synology.
-3. The lock is released so someone else can check it out next.
+3. The Synology copy is verified by checksum against your local copy.
 4. The stage + notes go into the shared log.
+5. The lock is released so someone else can check it out next.
+6. Your local copy is deleted — you don't need to check or clean up anything.
 
-Your local copy is **not** deleted — it sits on your TB SSD as a safety net.
-Clean it up manually when you trust the Synology copy.
+If verification fails, the local copy is kept and the lock stays held.
 
 ### `digi complete` — imaging's done, hide it from the queue
 

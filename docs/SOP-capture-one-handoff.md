@@ -134,12 +134,11 @@ for occasional QA):
    - **other** — type a description
 6. Type a one-line note (optional but encouraged: where you stopped, what
    needs attention next).
-7. Wait for rsync to complete. The lock is released; the session is back in
-   the queue and available.
-8. Verify with `digi queue`. The session is now **available** again.
-9. The local copy on the TB SSD is **not** auto-deleted. Once you trust the
-   Synology copy (run `digi queue` and confirm it appears available), you
-   may manually delete the local copy to reclaim SSD space.
+7. Wait for rsync to complete. `digi` verifies the Synology copy by
+   checksum, releases the lock, and deletes the local copy on the TB SSD.
+   The session is back in the queue and **available** — nothing to check.
+8. If verification fails, the local copy is kept and the lock stays held,
+   so nobody picks up a bad copy. Stop and get John.
 
 ### 5.4 Mark a session done (hide it from the queue)
 

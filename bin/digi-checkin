@@ -10,18 +10,16 @@ usage() {
   cat <<EOF
 Usage: digi checkin [<session-name>]
 
-Pushes the local working copy of a session back to the Synology queue and
-releases the lock so other Macs can pick it up next. Prompts for what
+Pushes the local working copy of a session back to the Synology queue,
+verifies the Synology copy by content checksum, releases the lock so other
+Macs can pick it up next, and removes the local copy. Prompts for what
 stage of work was done and any notes — these go to the shared log.
 
+If verification fails, nothing is removed and the lock stays held, so
+nobody else checks out a bad copy — fix the problem and re-run checkin.
+
 Picking stage "done" offers to also mark the session complete right
-then (same as running 'digi complete' afterward) — one flow instead of
-two commands, since 'digi complete' can't run until the lock this
-checkin just released is gone anyway. If you confirm, it also verifies
-the local copy against Synology by content checksum (not just "rsync
-didn't error") and removes the local copy once confirmed identical —
-"complete" means genuinely done, so the local copy shouldn't linger
-the way it deliberately does after a plain checkin.
+then (same as running 'digi complete' afterward).
 
 Refuses to check in if Capture One has the session open or if this
 machine isn't the lock holder.
@@ -105,6 +103,24 @@ rsync_args
 # Don't push the lock file or local .DS_Store junk; rsync_args excludes already cover most
 rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" "$SRC/" "$DST/"
 
+# Verify by content checksum (not just "rsync didn't error") before giving
+# up the lock or touching the local copy. Every checkin cleans up the local
+# copy — nobody should have to remember to check and delete it by hand.
+# Only lines starting with ">f" mean an actual file would be transferred;
+# directory-only lines like ".d..t...... ./" are mtime noise.
+#
+# MUST reuse RSYNC_ARGS (same --exclude list as the real push above) — a
+# live incident on digi-park's copy of this check compared with no excludes
+# and "found" every Capture One cache/thumbnail file missing, refusing an
+# otherwise-intact session.
+log "Verifying Synology copy matches local byte-for-byte..."
+DIFF_OUTPUT="$(rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
+if [[ -n "$DIFF_OUTPUT" ]]; then
+  warn "Synology copy does NOT verify as identical to local — differences:"
+  printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done
+  die "Not removing local copy, and keeping the lock — investigate, then re-run 'digi checkin'."
+fi
+
 # Build extra JSON for the log
 EXTRA="$(jq -c -n --arg stage "$STAGE" --arg notes "$NOTES" '{stage:$stage, notes:$notes}')"
 log_event checkin "$SESSION" "$USER_NAME" "$EXTRA"
@@ -112,8 +128,8 @@ log_event checkin "$SESSION" "$USER_NAME" "$EXTRA"
 # Release lock LAST so the event is logged while we still know who held it
 lock_clear "$SESSION"
 
-log "✓ Checked in. Lock released."
-log "  Local copy at $SRC is still here — delete it manually when you're confident the Synology copy is good."
+rm -rf "$SRC"
+log "✓ Checked in and verified. Lock released. Removed local copy: $SRC"
 
 if [[ "$STAGE" == "done" ]] && ! session_is_complete "$SESSION"; then
   if confirm "Mark $SESSION complete too (hides it from 'digi queue'/'digi checkout')?"; then
@@ -121,34 +137,5 @@ if [[ "$STAGE" == "done" ]] && ! session_is_complete "$SESSION"; then
     COMPLETE_EXTRA="$(jq -c -n --arg notes "$NOTES" '{notes:$notes}')"
     log_event complete "$SESSION" "$USER_NAME" "$COMPLETE_EXTRA"
     log "✓ Marked complete. $SESSION is hidden from 'digi queue' and 'digi checkout'."
-
-    # "Complete" means genuinely done — unlike a plain checkin (where the
-    # local copy deliberately stays, since re-checkout during active
-    # editing is likely), this is the point John wants local copies
-    # actually cleaned up automatically, not left for someone to
-    # "eventually" delete once they feel confident. So verify for real
-    # (content checksum, not just "rsync didn't error") and only then
-    # remove it — never leave that judgment call to human memory.
-    log "Verifying local copy matches Synology byte-for-byte before removing it..."
-    # Only lines starting with ">f" mean an actual file would be transferred
-    # (real content/size/existence difference). Directory-only attribute
-    # lines like ".d..t...... ./" are just mtime noise — every directory's
-    # timestamp updates independently on each side as files come and go
-    # locally vs. on Synology, and don't reflect any real difference.
-    #
-    # MUST reuse RSYNC_ARGS (same --exclude list as the real push above) —
-    # a live incident on digi-park's copy of this same check compared with
-    # no excludes at all and "found" every Capture One cache/thumbnail file
-    # (deliberately excluded from the real transfer as regenerable junk)
-    # missing from the destination, refusing an otherwise-intact session.
-    DIFF_OUTPUT="$(rsync "${RSYNC_ARGS[@]}" --exclude=".digi.lock.yaml" --checksum --dry-run --itemize-changes "$SRC/" "$DST/" 2>&1 | grep '^>f' || true)"
-    if [[ -n "$DIFF_OUTPUT" ]]; then
-      warn "Local copy at $SRC does NOT verify as identical to the Synology copy — leaving it in place:"
-      printf '%s\n' "$DIFF_OUTPUT" | while IFS= read -r line; do warn "  $line"; done
-      warn "Investigate before deleting $SRC manually."
-    else
-      rm -rf "$SRC"
-      log "✓ Verified identical. Removed local copy: $SRC"
-    fi
   fi
 fi
