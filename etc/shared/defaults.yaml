@@ -1,6 +1,12 @@
 # Cross-machine defaults. Sourced by every digi command.
 # Per-machine values override these in etc/machines/<name>.yaml.
 
+synology:
+  # Share that 'digi mount' (and its launchd agent) keeps mounted. Mounts at
+  # each machine's mounts.synology path; a machine can override the URL with
+  # mounts.synology_url in its own yaml.
+  smb_url: "smb://JohnPike@DigiLab483._smb._tcp.local/Digitization_Files"
+
 rsync:
   # Flags applied to every rsync invocation across the toolkit.
   # -a   archive (perms, times, symlinks, recursive)

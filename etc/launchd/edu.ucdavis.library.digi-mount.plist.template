@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>edu.ucdavis.library.digi-mount</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/.local/bin/digi</string>
+		<string>mount</string>
+	</array>
+
+	<!-- Runs once at login, then every 2 minutes. A no-op while the share
+	     is mounted; remounts it after sleep or a network drop. -->
+	<key>StartInterval</key>
+	<integer>120</integer>
+	<key>RunAtLoad</key>
+	<true/>
+
+	<!-- launchd agents get a minimal PATH (no Homebrew) — digi needs yq. -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/digi-mount.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/digi-mount.log</string>
+</dict>
+</plist>

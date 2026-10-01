@@ -35,3 +35,24 @@ a full removal.)
 The installed plist is a static copy in `~/Library/LaunchAgents/`, not a
 symlink — re-run the `sed` + `launchctl unload`/`load` above if this
 template ever changes.
+
+---
+
+# digi-mount launchd agent (every machine that uses the Synology)
+
+Runs `digi mount` every 2 minutes so the Synology share remounts on its own
+after sleep or a network drop. It uses the password saved in the login
+keychain — connect once in Finder (⌘K, `smb://DigiLab483.local/Digitization_Files`)
+with **Remember this password** checked before installing.
+
+## Install
+
+```sh
+cd ~/code/digitization-tasks-helper/etc/launchd
+sed "s|__HOME__|$HOME|g" edu.ucdavis.library.digi-mount.plist.template \
+  > ~/Library/LaunchAgents/edu.ucdavis.library.digi-mount.plist
+launchctl load ~/Library/LaunchAgents/edu.ucdavis.library.digi-mount.plist
+```
+
+Check it: `tail ~/Library/Logs/digi-mount.log` (empty while the share stays
+mounted). Uninstall: `launchctl unload` the plist, then `rm` it.

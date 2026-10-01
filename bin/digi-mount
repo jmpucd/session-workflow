@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# DESC: Mount the Synology share if it isn't mounted (run every 2 min by launchd).
+set -euo pipefail
+source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
+source "${DIGI_LIB_DIR}/sessions.sh"
+
+usage() {
+  cat <<EOF
+Usage: digi mount
+
+Mounts the Synology share at this machine's mounts.synology path if it
+isn't already mounted, using the password saved in the login keychain
+(connect once in Finder with "Remember this password" checked).
+
+Meant to run every couple of minutes via launchd (see etc/launchd/) so the
+share comes back on its own after sleep or a network drop. Safe to run by
+hand any time — it does nothing if the share is already mounted.
+
+After a failed attempt it waits ${BACKOFF_MIN:-10} minutes before trying again, so a
+missing keychain password can't pop a login dialog every two minutes.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0;; esac
+
+BACKOFF_MIN=10
+MOUNTPOINT="$(machine_get .mounts.synology)"
+[[ -n "$MOUNTPOINT" ]] || die "mounts.synology not set in $DIGI_MACHINE_CONFIG"
+URL="$(machine_get .mounts.synology_url)"
+[[ -n "$URL" ]] || URL="$(shared_get .synology.smb_url)"
+[[ -n "$URL" ]] || die "No Synology SMB URL (set synology.smb_url in etc/shared/defaults.yaml)"
+
+if mount | grep -qF " on ${MOUNTPOINT} ("; then
+  exit 0
+fi
+
+FAIL_STAMP="${TMPDIR:-/tmp}/digi-mount.failed"
+if [[ -f "$FAIL_STAMP" ]] && [[ -n "$(find "$FAIL_STAMP" -mmin -"$BACKOFF_MIN")" ]]; then
+  exit 0
+fi
+
+log "Synology not mounted at $MOUNTPOINT — mounting $URL"
+# Finder's mount path: reads the password from the login keychain and
+# mounts under /Volumes like a normal Connect to Server. Needs a GUI login
+# session, which launchd user agents have.
+if osascript -e "mount volume \"$URL\"" >/dev/null 2>&1 \
+   && mount | grep -qF " on ${MOUNTPOINT} ("; then
+  rm -f "$FAIL_STAMP"
+  log "✓ Mounted $MOUNTPOINT"
+else
+  touch "$FAIL_STAMP"
+  die "Mount failed — retrying in ${BACKOFF_MIN} min. If this keeps happening, connect once in Finder (⌘K, $URL) with 'Remember this password' checked."
+fi

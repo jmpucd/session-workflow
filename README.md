@@ -39,6 +39,7 @@ digi help                    # list available subcommands
 
 # Capture One session workflow (Synology = queue, TB SSDs = local scratch).
 digi park [<session>]        # capture station → Synology queue
+digi mount                   # mount the Synology share if it dropped (runs every 2 min via launchd, see etc/launchd/)
 digi presync                 # capture station only: background pre-stage of stable raw files (via launchd, see etc/launchd/)
 digi queue                   # list what's parked + who has what checked out
 digi checkout [<session>]    # pull a queued session to this Mac for editing
