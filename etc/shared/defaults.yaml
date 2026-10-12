@@ -6,6 +6,10 @@ synology:
   # each machine's mounts.synology path; a machine can override the URL with
   # mounts.synology_url in its own yaml.
   smb_url: "smb://JohnPike@DigiLab483._smb._tcp.local/Digitization_Files"
+  # Fallback when the lab LAN name doesn't resolve (off campus): the same share
+  # over Tailscale. Connect once in Finder to this URL with "Remember this
+  # password" checked so the keychain has an entry for it too.
+  smb_url_tailscale: "smb://JohnPike@100.82.239.38/Digitization_Files"
 
 rsync:
   # Flags applied to every rsync invocation across the toolkit.

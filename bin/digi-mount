@@ -39,6 +39,21 @@ if [[ -f "$FAIL_STAMP" ]] && [[ -n "$(find "$FAIL_STAMP" -mmin -"$BACKOFF_MIN")"
   exit 0
 fi
 
+# Off the lab network (e.g. at home) the LAN name can't be reached, and every
+# `mount volume` attempt pops Finder's "problem connecting to the server"
+# dialog. Probe the SMB port first; fall back to the Tailscale URL, and skip
+# quietly if neither answers.
+smb_reachable() {
+  local host="${1#*://}"; host="${host#*@}"; host="${host%%/*}"
+  host="${host/._smb._tcp/}"   # Bonjour service name -> DigiLab483.local
+  nc -z -G 3 "$host" 445 >/dev/null 2>&1
+}
+if ! smb_reachable "$URL"; then
+  URL="$(machine_get .mounts.synology_url_tailscale)"
+  [[ -n "$URL" ]] || URL="$(shared_get .synology.smb_url_tailscale)"
+  [[ -n "$URL" ]] && smb_reachable "$URL" || exit 0
+fi
+
 log "Synology not mounted at $MOUNTPOINT — mounting $URL"
 # Finder's mount path: reads the password from the login keychain and
 # mounts under /Volumes like a normal Connect to Server. Needs a GUI login
