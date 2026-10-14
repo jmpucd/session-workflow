@@ -6,12 +6,10 @@ source "${DIGI_LIB_DIR:?run via the digi dispatcher}/common.sh"
 
 log "Machine:    $DIGI_HOSTNAME  (from $(digi_machine_name_source "$DIGI_ETC_DIR"))"
 log "Repo:       $DIGI_REPO_DIR"
-log "Config:     $DIGI_MACHINE_CONFIG"
-
 if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
-  log "Role:       $(machine_get .role)"
+  log "Overrides:  $DIGI_MACHINE_CONFIG"
 else
-  warn "No machine config — run install.sh, or set etc/machine-name to match an existing etc/machines/*.yaml"
+  log "Overrides:  none (using etc/shared/defaults.yaml)"
 fi
 
 echo
@@ -45,37 +43,32 @@ check_path() {
     printf '  %-22s %s\n' "$label" "$val"
   fi
 }
-if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
-  check_path "capture_root"        ".paths.capture_root"
-  check_path "local_working"       ".paths.local_working"
-  check_path "sessions/synology"   ".sessions.synology_root"
-fi
+check_path "capture_root"        ".paths.capture_root"
+check_path "local_working"       ".paths.local_working"
+check_path "sessions/synology"   ".sessions.synology_root"
 
 # ---- Session format (must be UNPACKED) -------------------------------------
 # Sessions must be imported unpacked; packed .eip files break the handoff.
 # Scan the local session roots for stray .eip files and flag them.
-if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
-  echo
-  log "Session format (must be UNPACKED — no .eip files):"
-  source "${DIGI_LIB_DIR}/sessions.sh"
-  check_unpacked() {
-    local label="$1" key="$2"
-    local val
-    val="$(machine_get "$key" 2>/dev/null || true)"
-    val="${val/#\~/$HOME}"
-    [[ -n "$val" && -d "$val" ]] || return 0
-    local n
-    n="$(packed_file_count "$val")"
-    if [[ "$n" -gt 0 ]]; then
-      printf '  %-22s \033[31m%s packed .eip file(s) found — sessions must be UNPACKED\033[0m\n' "$label" "$n"
-    else
-      printf '  %-22s \033[32mOK (no .eip)\033[0m\n' "$label"
-    fi
-  }
-  check_unpacked "capture_root"  ".paths.capture_root"
-  check_unpacked "local_working" ".paths.local_working"
-  printf '  %s\n' "Reminder: Capture One → Preferences → Image → uncheck 'Pack as EIP'."
-fi
-
+echo
+log "Session format (must be UNPACKED — no .eip files):"
+source "${DIGI_LIB_DIR}/sessions.sh"
+check_unpacked() {
+  local label="$1" key="$2"
+  local val
+  val="$(machine_get "$key" 2>/dev/null || true)"
+  val="${val/#\~/$HOME}"
+  [[ -n "$val" && -d "$val" ]] || return 0
+  local n
+  n="$(packed_file_count "$val")"
+  if [[ "$n" -gt 0 ]]; then
+    printf '  %-22s \033[31m%s packed .eip file(s) found — sessions must be UNPACKED\033[0m\n' "$label" "$n"
+  else
+    printf '  %-22s \033[32mOK (no .eip)\033[0m\n' "$label"
+  fi
+}
+check_unpacked "capture_root"  ".paths.capture_root"
+check_unpacked "local_working" ".paths.local_working"
+printf '  %s\n' "Reminder: Capture One → Preferences → Image → uncheck 'Pack as EIP'."
 echo
 log "Done."

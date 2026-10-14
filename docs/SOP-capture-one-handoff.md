@@ -226,12 +226,9 @@ If any of these happen, stop and contact John:
 
 1. Clone the repo: `git clone <repo-url> ~/code/digitization-tasks-helper`
 2. `cd` in and run `./install.sh`.
-3. Edit `etc/machines/<hostname>.yaml`:
-   - `role:` set to `capture` or `edit`
-   - `paths.capture_root:` — only on the capture station
-   - `paths.local_working:` — local working storage (TB SSD path)
-   - `sessions.synology_root:` — full path to the Synology session queue
-   - `mounts.synology:` — the share mount point (for completeness)
+3. Edit-minis only: re-run `./install.sh --local-working <TB SSD path>/capture_sessions`.
+   All other settings (Synology queue, mount point, capture path) default from
+   `etc/shared/defaults.yaml`; no per-machine config is needed.
 4. Run `digi doctor` to verify all tools and paths are configured.
 
 ## 10. Glossary

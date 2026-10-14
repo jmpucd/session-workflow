@@ -1,5 +1,24 @@
 # Cross-machine defaults. Sourced by every digi command.
-# Per-machine values override these in etc/machines/<name>.yaml.
+# A machine needs NO config of its own: every key below is the default for
+# every Mac. Only differences go in an optional etc/machines/<name>.yaml
+# (e.g. an edit mini pointing paths.local_working at its TB SSD) — see
+# etc/machines/README.md.
+
+# Filesystem paths. What a machine can do depends only on these being set:
+# capture_root -> digi park/presync; local_working -> checkout/checkin.
+paths:
+  capture_root: "~/Pictures/capture_sessions"
+  local_working: "~/Pictures/capture_sessions"
+  av_root: ""
+  scratch: "/tmp/digi"
+
+# Where the Synology share mounts, and the parked-session queue on it.
+mounts:
+  synology: "/Volumes/Digitization_Files"
+  campus_server: ""
+
+sessions:
+  synology_root: "/Volumes/Digitization_Files/capture_sessions"
 
 synology:
   # Share that 'digi mount' (and its launchd agent) keeps mounted. Mounts at

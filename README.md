@@ -24,11 +24,11 @@ It will:
 
 1. Install Homebrew dependencies from `Brewfile` (rsync, ffmpeg, exiftool, etc.).
 2. Symlink `bin/digi` into `/usr/local/bin` (or `~/.local/bin` on Apple Silicon).
-3. Pin a stable machine name in `etc/machine-name` (gitignored; defaults to
-   the Sharing-pane "Local hostname" — edit the file to pick a friendlier
-   name) and create `etc/machines/<name>.yaml` if missing (copied from the
-   template — edit it afterward to fill in this machine's paths; see
-   `etc/machines/README.md`).
+
+No per-machine config is needed: defaults live in `etc/shared/defaults.yaml`.
+A machine that differs (an edit mini with its sessions on a TB SSD) passes
+`./install.sh --local-working /Volumes/<SSD>/capture_sessions`, which writes a
+small override file — see `etc/machines/README.md`.
 
 ## Usage
 
@@ -64,7 +64,7 @@ Docs:
 bin/         Subcommand executables (digi-backup, digi-rip-dvd, ...)
 lib/         Shared shell + Python helpers (logging, config, rsync wrappers)
 etc/         Configuration
-  machines/  Per-host config (paths, role, mount points)
+  machines/  Optional per-host overrides (most Macs have none)
   shared/    Settings that apply to every machine
 inbox/       Scratch space for unstyled scripts John dumps mid-workflow.
              Curated into bin/ + lib/ later.
@@ -87,20 +87,17 @@ inbox/
 
 ## Machines, typically
 
-`role:` in a machine's config is just a label for `digi doctor` to print —
-it doesn't restrict anything. What a machine can actually do comes from
-which paths are filled in (`capture_root` for `park`, `local_working` for
-`checkout`/`checkin`), and a machine can have both if that's how it's
-really used. The table below is what each machine happens to be set up
-for today, not a fixed category:
+There are no machine roles. What a machine can do comes from which paths are
+set (`capture_root` for `park`, `local_working` for `checkout`/`checkin`), and
+all machines share the same defaults. What each machine is used for today:
 
-| Role     | Hostname (example) | What it does                                    |
-|----------|--------------------|-------------------------------------------------|
-| capture  | mac-studio-versa   | Phase One iXG + Capture One, primary ingest — also edits locally (`local_working` set alongside `capture_root`) |
-| edit     | mac-mini-edit-1    | post-processing, batch derivatives              |
-| edit     | mac-mini-edit-2    | post-processing, AV digitization                |
-| laptop   | jmpike-mbp         | admin, scripting, editing sessions              |
-| nas      | synology           | working storage, transfer hub                   |
-| server   | campus-centos      | long-term backup, ffmpeg jobs, SC delivery hub  |
+| Hostname (example) | What it does                                    |
+|--------------------|-------------------------------------------------|
+| mac-studio-versa   | Phase One iXG + Capture One, primary ingest — also edits locally |
+| mac-mini-edit-1    | post-processing, batch derivatives (sessions on TB SSD) |
+| mac-mini-edit-2    | post-processing, AV digitization (sessions on TB SSD) |
+| jmpike-mbp         | admin, scripting, editing sessions              |
+| synology           | working storage, transfer hub                   |
+| campus-centos      | long-term backup, ffmpeg jobs, SC delivery hub  |
 
-See `etc/machines/README.md` for adding a new machine.
+See `etc/machines/README.md` for per-machine overrides.

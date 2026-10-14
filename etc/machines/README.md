@@ -1,32 +1,34 @@
-# Per-machine config
+# Per-machine overrides (optional)
 
-Each Mac that runs `digi` gets a YAML file here named after its machine name:
+Most Macs need **no file here**. Every default — session paths, the Synology
+mount and queue — lives in `etc/shared/defaults.yaml`, and `digi` works
+straight after `./install.sh`.
+
+Only a machine that differs gets `etc/machines/<name>.yaml`, containing just
+the differing keys. Today that's an edit mini whose working sessions live on a
+TB SSD:
 
 ```
-etc/machines/<name>.yaml
+./install.sh --local-working /Volumes/Edit_SSD/capture_sessions
 ```
 
-The name comes from the gitignored `etc/machine-name` file, which
-`install.sh` writes on first run (defaulting to the Sharing-pane "Local
-hostname"). It deliberately does NOT use `hostname -s`: on a Mac with no
-pinned HostName that value follows the network (e.g. `Mac` at home,
-`n99248c` on campus), which made `digi` lose its config on every move.
-To rename a machine, edit `etc/machine-name` and rename its YAML to match.
-`DIGI_MACHINE=<name>` overrides everything for a one-off run.
+which writes (see `_example.yaml`):
 
-`install.sh` creates the YAML from `_template.yaml` on first run. Edit it to
-match the machine's paths.
+```yaml
+paths:
+  local_working: "/Volumes/Edit_SSD/capture_sessions"
+```
 
-## `role:` is a label, not a restriction
+A key in the machine file wins; anything it omits falls back to the defaults.
+What a machine can do depends only on which paths are set: `capture_root` for
+`digi park`/presync, `local_working` for `checkout`/`checkin`.
 
-The `role` field (capture | edit | laptop | nas | server) is informational
-only — `digi doctor` prints it, and nothing else in the codebase reads it.
-What a machine can actually do is determined purely by which `paths.*`
-fields are filled in: set `capture_root` and `digi park` works; set
-`local_working` and `digi checkout`/`checkin` work. Fill in both if a
-machine genuinely does both (a capture station that also edits locally,
-an edit machine that occasionally captures) — there's no exclusive
-category forcing a choice.
+The name comes from the gitignored `etc/machine-name` file, written by
+`install.sh` when it creates an override file (defaulting to the Sharing-pane
+"Local hostname"). It deliberately does NOT use `hostname -s`: on a Mac with
+no pinned HostName that value follows the network (e.g. `Mac` at home,
+`n99248c` on campus). To rename a machine, edit `etc/machine-name` and rename
+its YAML to match. `DIGI_MACHINE=<name>` overrides everything for a one-off run.
 
 ## Conventions
 

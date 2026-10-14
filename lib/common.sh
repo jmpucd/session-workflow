@@ -22,13 +22,21 @@ source "${DIGI_LIB_DIR}/machine-name.sh"
 DIGI_HOSTNAME="$(digi_machine_name "$DIGI_ETC_DIR")"
 DIGI_MACHINE_CONFIG="${DIGI_ETC_DIR}/machines/${DIGI_HOSTNAME}.yaml"
 
-# Read a key from the per-machine yaml. Requires `yq` (installed via Brewfile).
+# Read a key: the optional per-machine yaml (overrides only) wins, otherwise
+# the same key in etc/shared/defaults.yaml. A machine with no yaml is normal.
+# Requires `yq` (installed via Brewfile).
 # Usage: capture_root="$(machine_get .paths.capture_root)"
+DIGI_SHARED_DEFAULTS="${DIGI_ETC_DIR}/shared/defaults.yaml"
 machine_get() {
-  local key="$1"
-  [[ -f "$DIGI_MACHINE_CONFIG" ]] || die "No machine config at $DIGI_MACHINE_CONFIG (machine name from $(digi_machine_name_source "$DIGI_ETC_DIR")). Run install.sh, or set etc/machine-name to match an existing etc/machines/*.yaml."
+  local key="$1" val=""
   command -v yq >/dev/null 2>&1 || die "yq not installed (brew install yq)"
-  yq -r "$key // \"\"" "$DIGI_MACHINE_CONFIG"
+  if [[ -f "$DIGI_MACHINE_CONFIG" ]]; then
+    val="$(yq -r "$key // \"\"" "$DIGI_MACHINE_CONFIG")"
+  fi
+  if [[ -z "$val" && -f "$DIGI_SHARED_DEFAULTS" ]]; then
+    val="$(yq -r "$key // \"\"" "$DIGI_SHARED_DEFAULTS")"
+  fi
+  printf '%s\n' "$val"
 }
 
 # ---- misc ------------------------------------------------------------------

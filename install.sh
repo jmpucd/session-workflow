@@ -39,23 +39,31 @@ ln -sfn "$REPO_DIR/bin/digi" "$INSTALL_DIR/digi"
 log "Linked digi → $INSTALL_DIR/digi"
 
 # ---------------------------------------------------------------------------
-# 3. Per-machine config
+# 3. Per-machine overrides (optional)
 # ---------------------------------------------------------------------------
-# Pin this machine's name on first run so it never follows the network
-# (see lib/machine-name.sh). etc/machine-name is gitignored.
-MACHINE_NAME="$(digi_machine_name "$REPO_DIR/etc")"
-if [[ ! -s "$REPO_DIR/etc/machine-name" ]]; then
-  printf '%s\n' "$MACHINE_NAME" > "$REPO_DIR/etc/machine-name"
-  log "Pinned machine name '$MACHINE_NAME' in etc/machine-name (edit to rename)"
-fi
+# digi works out of the box from etc/shared/defaults.yaml — no per-machine
+# file is needed. Only machines that differ (e.g. an edit mini whose working
+# sessions live on a TB SSD) get an etc/machines/<name>.yaml of overrides:
+#   ./install.sh --local-working /Volumes/Edit_SSD/capture_sessions
+LOCAL_WORKING=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --local-working) LOCAL_WORKING="${2:?--local-working needs a path}"; shift 2;;
+    *) die "Unknown option: $1 (supported: --local-working PATH)";;
+  esac
+done
 
-MACHINE_CONFIG="$REPO_DIR/etc/machines/${MACHINE_NAME}.yaml"
-if [[ ! -f "$MACHINE_CONFIG" ]]; then
-  log "First run on $MACHINE_NAME — creating $MACHINE_CONFIG"
-  cp "$REPO_DIR/etc/machines/_template.yaml" "$MACHINE_CONFIG"
-  warn "Edit $MACHINE_CONFIG to set this machine's role and paths."
+if [[ -n "$LOCAL_WORKING" ]]; then
+  MACHINE_NAME="$(digi_machine_name "$REPO_DIR/etc")"
+  if [[ ! -s "$REPO_DIR/etc/machine-name" ]]; then
+    printf '%s\n' "$MACHINE_NAME" > "$REPO_DIR/etc/machine-name"
+    log "Pinned machine name '$MACHINE_NAME' in etc/machine-name (edit to rename)"
+  fi
+  MACHINE_CONFIG="$REPO_DIR/etc/machines/${MACHINE_NAME}.yaml"
+  printf 'paths:\n  local_working: "%s"\n' "$LOCAL_WORKING" > "$MACHINE_CONFIG"
+  log "Wrote overrides for $MACHINE_NAME → $MACHINE_CONFIG"
 else
-  log "Machine config exists: $MACHINE_CONFIG"
+  log "No per-machine overrides needed (using etc/shared/defaults.yaml)"
 fi
 
 # ---------------------------------------------------------------------------

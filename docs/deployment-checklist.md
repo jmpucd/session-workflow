@@ -3,7 +3,7 @@
 Rolls the Capture One handoff system onto all four machines. Every step is
 **idempotent** — safe to re-run, safe if it was already done. Work top to
 bottom on each machine. `install.sh` handles Homebrew deps and the symlink;
-you only hand-edit the per-machine config.
+the only per-machine step is the minis' TB SSD path.
 
 Assumes: all machines Apple Silicon, repo cloned over HTTPS from
 `https://github.com/jmpucd/session-workflow.git`. Reach each box over
@@ -23,7 +23,7 @@ git clone https://github.com/jmpucd/session-workflow.git ~/code/digitization-tas
   || (cd ~/code/digitization-tasks-helper && git pull)
 cd ~/code/digitization-tasks-helper
 
-# 2. Install deps + create this machine's config + symlink digi
+# 2. Install deps + symlink digi
 ./install.sh
 
 # 3. If install.sh warned that ~/.local/bin isn't on PATH, add it once:
@@ -31,35 +31,25 @@ grep -q '.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> 
 #    then open a new Terminal tab so `digi` is found.
 ```
 
-Then edit **this machine's** config — `install.sh` prints the path
-(`etc/machines/$(hostname -s).yaml`). Use the matching block below.
-
 Finish every machine with:
 
 ```bash
 digi doctor      # everything green/normal; no red, no packed .eip
 ```
 
+No per-machine config file is needed: paths and the Synology mount/queue come
+from `etc/shared/defaults.yaml` (`~/Pictures/capture_sessions`,
+`/Volumes/Digitization_Files`). Only the differences below.
+
 ---
 
 ## Versa (Mac Studio — capture station)
 
-**Config** (`etc/machines/<versa-hostname>.yaml`):
-
-```yaml
-role: capture
-paths:
-  capture_root: ~/Pictures/capture_sessions
-  local_working: ~/Pictures/capture_sessions
-sessions:
-  synology_root: /Volumes/<SYNOLOGY-SHARE>/capture_sessions
-```
-
-**One-time, from the Versa (has the Synology mounted):**
+Nothing to configure. Create the capture folder, then:
 
 ```bash
 mkdir -p ~/Pictures/capture_sessions
-mkdir -p /Volumes/<SYNOLOGY-SHARE>/capture_sessions   # the shared queue
+mkdir -p /Volumes/Digitization_Files/capture_sessions   # the shared queue, once
 ```
 
 **Capture One — set imports UNPACKED (required):**
@@ -69,26 +59,19 @@ mkdir -p /Volumes/<SYNOLOGY-SHARE>/capture_sessions   # the shared queue
   lists any session still holding `.eip` files. For each, in Capture One
   select the images → **Image → Unpack** (right-click also has it).
 
-> Swap `<SYNOLOGY-SHARE>` for the real name under `/Volumes/`.
+**Presync (launchd):** install the agents from `etc/launchd/README.md` and
+grant `/bin/bash` Full Disk Access (see that README) or presync gets
+`Operation not permitted` on the share.
 
 ---
 
 ## mini-1 and mini-2 (M4 minis — edit / QA)
 
-**Config** (`etc/machines/<mini-hostname>.yaml`):
-
-```yaml
-role: edit
-paths:
-  local_working: /Volumes/<TB-SSD>/capture_sessions
-sessions:
-  synology_root: /Volumes/<SYNOLOGY-SHARE>/capture_sessions
-```
-
-**One-time on each mini** (TB SSD plugged in and mounted):
+The one difference: working sessions live on the TB SSD. With it plugged in:
 
 ```bash
 mkdir -p /Volumes/<TB-SSD>/capture_sessions
+./install.sh --local-working /Volumes/<TB-SSD>/capture_sessions
 ```
 
 > `<TB-SSD>` is the drive's name as it appears under `/Volumes/`. Never run
@@ -99,15 +82,7 @@ mkdir -p /Volumes/<TB-SSD>/capture_sessions
 
 ## MacBook (laptop — admin + occasional review)
 
-**Config** (`etc/machines/<macbook-hostname>.yaml`):
-
-```yaml
-role: laptop
-paths:
-  local_working: ~/Pictures/capture_sessions
-sessions:
-  synology_root: /Volumes/<SYNOLOGY-SHARE>/capture_sessions
-```
+Nothing to configure; defaults apply.
 
 ```bash
 mkdir -p ~/Pictures/capture_sessions

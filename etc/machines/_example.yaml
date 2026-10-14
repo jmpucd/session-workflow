@@ -1,0 +1,6 @@
+# OPTIONAL per-machine overrides. Most Macs need no file here at all — every
+# default lives in etc/shared/defaults.yaml. Add etc/machines/<name>.yaml only
+# for keys that differ on this machine, e.g. an edit mini whose working
+# sessions live on a TB SSD (or run: ./install.sh --local-working PATH):
+paths:
+  local_working: "/Volumes/Edit_SSD/capture_sessions"

@@ -47,38 +47,15 @@ unless something breaks.
    export PATH="$HOME/.local/bin:$PATH"
    ```
 
-3. **Edit this Mac's config file.** The installer printed its path, but
-   you can also find it at:
+3. **Point at the TB SSD (edit minis only).** Every other Mac works with
+   the defaults and needs nothing here. On each mac mini, re-run the
+   installer with the SSD's path:
 
    ```
-   etc/machines/<this-mac's-short-hostname>.yaml
+   ./install.sh --local-working /Volumes/<TB-SSD-volume-name>/capture_sessions
    ```
 
-   Open it in your editor and fill in:
-
-   **On the Versa Mac Studio:**
-
-   ```yaml
-   role: capture
-   paths:
-     capture_root: ~/Pictures/capture_sessions
-     local_working: ~/Pictures/capture_sessions
-   sessions:
-     synology_root: /Volumes/<your-synology-share>/capture_sessions
-   ```
-
-   **On each mac mini:**
-
-   ```yaml
-   role: edit
-   paths:
-     local_working: /Volumes/<TB-SSD-volume-name>/capture_sessions
-   sessions:
-     synology_root: /Volumes/<your-synology-share>/capture_sessions
-   ```
-
-   Swap in the real volume names you noted before starting. The TB SSD
-   path is whatever shows up under `/Volumes/` when the drive is plugged
+   The path is whatever shows up under `/Volumes/` when the drive is plugged
    in — usually whatever you named the disk in Disk Utility.
 
    **On the Versa Mac Studio only — set Capture One to import UNPACKED.**
