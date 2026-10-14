@@ -5,6 +5,18 @@ files start moving to the Synology while a session is still being shot —
 see `docs/capture-one-workflow.md` for what presync actually does and why.
 Only needed on the capture station (Versa); other machines don't run it.
 
+## Full Disk Access (required for presync)
+
+launchd jobs can't read or write the mounted Synology share unless the
+process macOS sees has Full Disk Access. The plists therefore launch
+`/bin/bash digi …` rather than `digi` directly (a `#!/usr/bin/env bash`
+script would be attributed to `/usr/bin/env`, which has no grant). On each
+Mac running presync: System Settings → Privacy & Security → Full Disk Access
+→ add `/bin/bash` (Cmd+Shift+G in the picker to type the path), then
+`launchctl kickstart -k gui/$(id -u)/edu.ucdavis.library.digi-presync`.
+Symptom without it: `mkdir: …/capture_sessions/<name>: Operation not permitted`
+in `~/Library/Logs/digi-presync.log`.
+
 ## Install
 
 ```sh
