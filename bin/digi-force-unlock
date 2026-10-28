@@ -30,6 +30,7 @@ LOCK="${SESSION_DIR}/.digi.lock.yaml"
 
 [[ -d "$SESSION_DIR" ]] || die "No such session: $SESSION_DIR"
 [[ -f "$LOCK" ]] || { warn "No lock to clear for $SESSION"; exit 0; }
+assert_synology_space
 
 HOLDER_MAC="$(yq -r '.mac // "?"' "$LOCK")"
 HOLDER_USER="$(yq -r '.user // "?"' "$LOCK")"

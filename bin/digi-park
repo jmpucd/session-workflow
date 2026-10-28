@@ -65,6 +65,8 @@ if [[ -e "$DST" ]] && ! notready_exists "$SESSION"; then
   confirm "Continue?" || die "Aborted."
 fi
 
+assert_synology_space "$(du -sk "$SRC" | awk '{print $1}')"
+
 USER_NAME="$(who_am_i)"
 
 log "Parking $SESSION"

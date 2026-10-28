@@ -74,5 +74,20 @@ check_unpacked() {
 check_unpacked "capture_root"  ".paths.capture_root"
 check_unpacked "local_working" ".paths.local_working"
 printf '  %s\n' "Reminder: Capture One → Preferences → Image → uncheck 'Pack as EIP'."
+
+# ---- Synology free space ---------------------------------------------------
+echo
+log "Synology free space:"
+if syn_root="$(machine_get .sessions.synology_root 2>/dev/null)" && [[ -d "$syn_root" ]]; then
+  free_gb=$(( $(synology_free_kb) / 1024 / 1024 ))
+  min_gb="$(shared_get .synology.min_free_gb)"; [[ -n "$min_gb" ]] || min_gb=50
+  if (( free_gb < min_gb )); then
+    printf '  \033[31m%s GB free — below the %s GB minimum; park/checkin/checkout will refuse\033[0m\n' "$free_gb" "$min_gb"
+  else
+    printf '  \033[32m%s GB free\033[0m\n' "$free_gb"
+  fi
+else
+  printf '  \033[2m(Synology not mounted)\033[0m\n'
+fi
 echo
 log "Done."

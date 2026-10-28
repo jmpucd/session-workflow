@@ -29,6 +29,10 @@ synology:
   # over Tailscale. Connect once in Finder to this URL with "Remember this
   # password" checked so the keychain has an entry for it too.
   smb_url_tailscale: "smb://JohnPike@100.82.239.38/Digitization_Files"
+  # park/checkin/checkout/force-unlock refuse to write when the share has
+  # less than this much free (plus the session size, for park). A full share
+  # silently writes 0-byte files over SMB.
+  min_free_gb: 50
 
 rsync:
   # Flags applied to every rsync invocation across the toolkit.

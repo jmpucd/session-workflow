@@ -41,6 +41,35 @@ synology_sessions_root() {
   printf '%s\n' "$root"
 }
 
+# ---- Synology free space ---------------------------------------------------
+#
+# A full Synology share doesn't make writes fail loudly over SMB: files get
+# created but come out 0 bytes, and rsync still exits 0. Incident 2026-10-27:
+# a checkin onto a full share left D-757_galvan's .cosessiondb and every .cos
+# settings file empty, and a lock file written afterwards was empty too. So
+# every command that writes to Synology checks free space up front.
+
+# Free space on the Synology share, in KB.
+synology_free_kb() {
+  df -k "$(synology_sessions_root)" | awk 'NR==2 {print $4}'
+}
+
+# Die unless the share has room for <needed_kb> plus synology.min_free_gb.
+# Usage: assert_synology_space [needed_kb]
+assert_synology_space() {
+  local needed_kb="${1:-0}"
+  local min_gb free_kb
+  min_gb="$(shared_get .synology.min_free_gb)"
+  [[ -n "$min_gb" ]] || min_gb=50
+  free_kb="$(synology_free_kb)"
+  [[ "$free_kb" =~ ^[0-9]+$ ]] || die "Couldn't read free space on the Synology share."
+  if (( free_kb < needed_kb + min_gb * 1024 * 1024 )); then
+    die "Synology share is nearly full: $(( free_kb / 1024 / 1024 )) GB free, need $(( needed_kb / 1024 / 1024 )) GB + ${min_gb} GB headroom.
+     Writing to a full share silently produces empty files. Nothing was copied.
+     Free up space on the Synology (or tell John), then try again."
+  fi
+}
+
 # Local working dir for checked-out sessions. Dies if not configured.
 local_working_root() {
   local root
@@ -276,6 +305,10 @@ local_path: ${local_path}
 checked_out_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
   mv -f "$tmp" "$p"
+
+  # Read it back: a full share can leave the lock file empty without any error.
+  [[ "$(yq -r '.mac // ""' "$p")" == "$DIGI_HOSTNAME" ]] || \
+    die "Lock file on Synology didn't save correctly ($p) — is the share full? Run 'digi doctor'."
 }
 
 # Clear a lock. Refuses unless this mac holds it (override with force=1).

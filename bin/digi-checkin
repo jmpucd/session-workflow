@@ -77,6 +77,7 @@ HOLDER="$(yq -r '.mac // ""' "$LOCK")"
 
 assert_capture_one_idle "$SRC"
 assert_session_unpacked "$SRC"
+assert_synology_space
 
 # Pull user from existing lock so we keep the same identity end-to-end
 USER_NAME="$(yq -r '.user // ""' "$LOCK")"

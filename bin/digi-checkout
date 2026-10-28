@@ -89,6 +89,14 @@ if [[ -e "$DST" ]]; then
   confirm "Continue?" || die "Aborted."
 fi
 
+# An empty session database means the Synology copy is damaged (e.g. it was
+# written while the share was full) — don't hand out a corrupted session.
+EMPTY_DB="$(find "$SRC" -maxdepth 1 -name '*.cosessiondb' -size 0 -print -quit)"
+[[ -z "$EMPTY_DB" ]] || \
+  die "The Synology copy of $SESSION looks damaged: $(basename "$EMPTY_DB") is empty. Don't check it out — tell John."
+
+assert_synology_space
+
 USER_NAME="$(who_am_i)"
 
 # Write lock FIRST so concurrent checkout from another Mac races correctly.
