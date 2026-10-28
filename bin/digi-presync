@@ -88,6 +88,12 @@ SYNOLOGY_ROOT="$(synology_sessions_root)"
 
 rsync_args
 
+# Unattended, so warn and skip the pass rather than die loudly.
+if ! ( assert_synology_space ) 2>/dev/null; then
+  warn "presync: Synology share is nearly full — skipping this pass."
+  exit 0
+fi
+
 shopt -s nullglob
 for d in "$CAPTURE_ROOT"/*/; do
   name="${d%/}"; name="${name##*/}"
@@ -118,8 +124,13 @@ for d in "$CAPTURE_ROOT"/*/; do
   find "$SRC" \( -iname "*.IIQ" -o -iname "*.CR3" \) -type f -mmin "+${MIN_AGE_MIN}" \
     ! -path "*/CaptureOne/*" -print | sed "s#^${SRC}/##" > "$FILELIST"
 
+  # --size-only: modification times don't stick on the Synology share, so
+  # rsync's default size+mtime check re-sent every RAW on every pass, and
+  # each overwrite parked the old copy in the share's #recycle — ~19 TB by
+  # 2026-10-27, filling the share. Raw files never change after capture, so
+  # size is enough here; 'digi park' still verifies by checksum.
   if [[ -s "$FILELIST" ]]; then
-    if ! rsync "${RSYNC_ARGS[@]}" --files-from="$FILELIST" "$SRC/" "$DST/"; then
+    if ! rsync "${RSYNC_ARGS[@]}" --size-only --files-from="$FILELIST" "$SRC/" "$DST/"; then
       warn "presync: rsync had issues for $name (will retry next pass)"
     fi
   fi
